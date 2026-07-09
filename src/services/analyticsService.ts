@@ -95,3 +95,54 @@ export async function getFunnel(sourceTag: string): Promise<FunnelReport> {
 
   return { sourceTag, started, steps };
 }
+
+export interface TrendDay {
+  date: string; // YYYY-MM-DD
+  started: number;
+  clicked: number;
+}
+
+export interface TrendReport {
+  sourceTag: string;
+  days: TrendDay[];
+}
+
+// Kunlik trend: oxirgi N kunda har kuni nechta yangi foydalanuvchi va klik.
+export async function getTrend(
+  sourceTag: string,
+  days = 14
+): Promise<TrendReport> {
+  const dayMs = 24 * 60 * 60 * 1000;
+  const since = new Date(Date.now() - (days - 1) * dayMs);
+  since.setUTCHours(0, 0, 0, 0);
+
+  const agg = await SequenceEventModel.aggregate([
+    { $match: { source_tag: sourceTag, created_at: { $gte: since } } },
+    {
+      $group: {
+        _id: {
+          day: { $dateToString: { format: "%Y-%m-%d", date: "$created_at" } },
+          type: "$type",
+        },
+        users: { $addToSet: "$telegram_id" },
+      },
+    },
+    { $project: { _id: 0, day: "$_id.day", type: "$_id.type", count: { $size: "$users" } } },
+  ]);
+
+  const map = new Map<string, { started: number; clicked: number }>();
+  agg.forEach((r: { day: string; type: string; count: number }) => {
+    const e = map.get(r.day) ?? { started: 0, clicked: 0 };
+    if (r.type === "started") e.started = r.count;
+    else if (r.type === "clicked") e.clicked = r.count;
+    map.set(r.day, e);
+  });
+
+  const out: TrendDay[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const key = new Date(Date.now() - i * dayMs).toISOString().slice(0, 10);
+    const e = map.get(key) ?? { started: 0, clicked: 0 };
+    out.push({ date: key, started: e.started, clicked: e.clicked });
+  }
+  return { sourceTag, days: out };
+}

@@ -3,6 +3,7 @@ import { BotContext } from "../context";
 import { enqueueTextMessage } from "../../services/messageQueueService";
 import { statsHandler, exportHandler, linksHandler } from "./admin";
 import { handleFunnelCommand } from "./funnel";
+import { handleTrendCommand } from "./trend";
 import { handleDashboardCommand } from "./dashboard";
 import { startBroadcastFlow } from "../flows/broadcastFlow";
 import { startSetContentFlow } from "../flows/setContentFlow";
@@ -15,6 +16,7 @@ export const adminMenuLabels = {
   manage: "✏️ Tahrirlash/O‘chirish",
   links: "🔗 Havolalar",
   funnel: "📈 Voronka",
+  trend: "📉 Trend",
   dashboard: "📊 Dashboard",
   export: "⬇️ CSV eksport",
 };
@@ -33,7 +35,9 @@ export async function showAdminMenu(ctx: BotContext): Promise<void> {
     .text(adminMenuLabels.links)
     .text(adminMenuLabels.funnel)
     .row()
+    .text(adminMenuLabels.trend)
     .text(adminMenuLabels.dashboard)
+    .row()
     .text(adminMenuLabels.export)
     .resized();
 
@@ -72,6 +76,10 @@ export async function handleAdminMenuMessage(
   }
   if (text === adminMenuLabels.funnel) {
     await handleFunnelCommand(ctx);
+    return true;
+  }
+  if (text === adminMenuLabels.trend) {
+    await handleTrendCommand(ctx);
     return true;
   }
   if (text === adminMenuLabels.dashboard) {

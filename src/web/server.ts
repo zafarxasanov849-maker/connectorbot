@@ -4,7 +4,7 @@ import { env } from "../config/env";
 import { validateInitData } from "./auth";
 import { isAdmin } from "../services/adminService";
 import { listContentTags, getPackageWithMessages } from "../services/contentService";
-import { getFunnel, recordSequenceEvent } from "../services/analyticsService";
+import { getFunnel, getTrend, recordSequenceEvent } from "../services/analyticsService";
 import { verifyClickToken } from "../utils/clickToken";
 import { logger } from "../utils/logger";
 
@@ -63,6 +63,10 @@ export function startWebServer(): void {
 
   app.get("/api/funnel/:tag", auth, async (req: Request, res: Response) => {
     res.json(await getFunnel(req.params.tag));
+  });
+
+  app.get("/api/trend/:tag", auth, async (req: Request, res: Response) => {
+    res.json(await getTrend(req.params.tag));
   });
 
   // Statik dashboard (webapp/index.html)

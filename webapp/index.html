@@ -44,6 +44,10 @@
     .click { font-size: 12px; color: #66bb6a; margin-top: 6px; }
     .wait { font-size: 12px; color: var(--hint); margin-top: 6px; }
     .drop { font-size: 12px; color: #e57373; margin-top: 6px; }
+    .section-title { font-size: 14px; font-weight: 600; margin: 22px 0 10px; }
+    .chart { background: var(--card); border-radius: 12px; padding: 12px; }
+    .chart svg { height: 110px; display: block; }
+    .chart-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--hint); margin-top: 6px; }
     .empty, .error { text-align: center; color: var(--hint); padding: 40px 0; font-size: 14px; }
     .loader { text-align: center; padding: 40px 0; color: var(--hint); }
   </style>
@@ -90,8 +94,7 @@
 
       if (!steps.length) {
         html += `<div class="empty">Bu tag uchun hali xabar yo'q.</div>`;
-        contentEl.innerHTML = html;
-        return;
+        return html;
       }
 
       steps.forEach((s, i) => {
@@ -103,17 +106,46 @@
             ${s.waiting > 0 ? `<div class="wait">⏳ Kutmoqda: ${s.waiting} kishi</div>` : ``}
           </div>`;
       });
-      contentEl.innerHTML = html;
+      return html;
+    }
+
+    function renderTrend(data) {
+      const days = data.days || [];
+      if (!days.length) return "";
+      const max = Math.max(1, ...days.map(d => d.started));
+      const W = 320, H = 110, pad = 16;
+      const bw = (W - pad * 2) / days.length;
+      let bars = "";
+      days.forEach((d, i) => {
+        const h = (d.started / max) * (H - pad * 2);
+        const x = pad + i * bw;
+        const y = H - pad - h;
+        bars += `<rect x="${x + 1}" y="${y}" width="${Math.max(1, bw - 2)}" height="${h}" rx="2" fill="var(--accent)"></rect>`;
+        if (d.clicked > 0) {
+          const ch = (d.clicked / max) * (H - pad * 2);
+          bars += `<rect x="${x + 1}" y="${H - pad - ch}" width="${Math.max(1, bw - 2)}" height="${ch}" rx="2" fill="#66bb6a"></rect>`;
+        }
+      });
+      const total = days.reduce((s, d) => s + d.started, 0);
+      return `
+        <div class="section-title">📈 Kunlik yangi foydalanuvchilar · ${days.length} kun (jami ${total})</div>
+        <div class="chart">
+          <svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="none">${bars}</svg>
+          <div class="chart-labels"><span>${days[0].date.slice(5)}</span><span>👆 klik</span><span>${days[days.length - 1].date.slice(5)}</span></div>
+        </div>`;
     }
 
     async function loadFunnel(tag) {
       activeTag = tag;
-      subEl.textContent = `"${tag}" voronkasi`;
+      subEl.textContent = `"${tag}" tahlili`;
       [...tagsEl.children].forEach(c => c.classList.toggle("active", c.dataset.tag === tag));
       contentEl.innerHTML = `<div class="loader">Yuklanmoqda…</div>`;
       try {
-        const data = await api(`/api/funnel/${encodeURIComponent(tag)}`);
-        renderFunnel(data);
+        const [funnel, trend] = await Promise.all([
+          api(`/api/funnel/${encodeURIComponent(tag)}`),
+          api(`/api/trend/${encodeURIComponent(tag)}`),
+        ]);
+        contentEl.innerHTML = renderFunnel(funnel) + renderTrend(trend);
       } catch (e) {
         contentEl.innerHTML = `<div class="error">Xatolik: ${e.message}</div>`;
       }

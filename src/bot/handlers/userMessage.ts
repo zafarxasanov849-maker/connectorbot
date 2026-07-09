@@ -30,6 +30,6 @@ export async function userMessageHandler(ctx: BotContext): Promise<void> {
 
   await enqueueTextMessage({
     chatId,
-    text: "Xabaringiz qabul qilindi. Tez orada siz bilan bog‘lanamiz. /start",
+    text: "Xabaringiz qabul qilindi ✅\nTez orada siz bilan bog‘lanamiz.",
   });
 }

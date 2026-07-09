@@ -3,6 +3,7 @@ import { env } from "../config/env";
 import { BotContext, SessionData } from "./context";
 import { startHandler } from "./handlers/start";
 import { statsHandler, exportHandler, linksHandler } from "./handlers/admin";
+import { handleFunnelCommand, handleFunnelCallback } from "./handlers/funnel";
 import {
   showAdminMenu,
   handleAdminMenuMessage,
@@ -44,6 +45,7 @@ export function createBot(): Bot<BotContext> {
   admin.command("stats", statsHandler);
   admin.command("export", exportHandler);
   admin.command("links", linksHandler);
+  admin.command("funnel", handleFunnelCommand);
   admin.command("manage", (ctx) => handleManageCommand(ctx));
   admin.command("broadcast", (ctx) => startBroadcastFlow(ctx));
   admin.command("setcontent", (ctx) =>
@@ -67,7 +69,8 @@ export function createBot(): Bot<BotContext> {
     await (
       (await handleBroadcastCallback(ctx)) ||
       (await handleSetContentCallback(ctx)) ||
-      (await handleManageCallback(ctx))
+      (await handleManageCallback(ctx)) ||
+      (await handleFunnelCallback(ctx))
     );
   });
 

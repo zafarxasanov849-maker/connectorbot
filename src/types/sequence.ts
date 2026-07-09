@@ -5,4 +5,6 @@ export interface SequenceJobData {
   text?: string;
   media?: IMediaFile[];
   buttons?: IContentButton[];
+  sourceTag?: string;
+  order?: number;
 }

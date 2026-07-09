@@ -37,6 +37,7 @@ export async function startHandler(ctx: BotContext): Promise<void> {
         chatId: ctx.chat?.id ?? from.id,
         messages: content.messages ?? [],
         joinedAt: new Date(), // schedule from current start invocation
+        sourceTag,
       });
       return;
     }

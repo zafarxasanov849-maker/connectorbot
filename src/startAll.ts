@@ -9,6 +9,7 @@ import { Worker, Job } from "bullmq";
 import { BroadcastJobData } from "./types/broadcast";
 import { deliverContent } from "./services/deliveryService";
 import { handleDeliveryError } from "./utils/deliveryError";
+import { recordSequenceEvent } from "./services/analyticsService";
 import { SequenceJobData } from "./types/sequence";
 import { MessageJobData } from "./types/message";
 import { Api, InputFile } from "grammy";
@@ -78,9 +79,17 @@ function startSequenceWorker(): Worker<SequenceJobData> {
   const connection = new Redis(env.redisUrl, redisConfig);
 
   const processJob = async (job: Job<SequenceJobData>): Promise<void> => {
-    const { chatId, text, media, buttons } = job.data;
+    const { chatId, text, media, buttons, sourceTag, order } = job.data;
     try {
       await deliverContent({ api, chatId, text, media, buttons });
+      if (sourceTag) {
+        await recordSequenceEvent({
+          sourceTag,
+          telegramId: chatId,
+          type: "delivered",
+          order,
+        });
+      }
     } catch (error) {
       await handleDeliveryError(chatId, error);
     }

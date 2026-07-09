@@ -13,6 +13,13 @@ export const env = {
     .map((id) => id.trim())
     .filter(Boolean),
   logLevel: process.env.LOG_LEVEL ?? "info",
+  amoCrm: {
+    subdomain: process.env.AMOCRM_SUBDOMAIN ?? "",
+    token: process.env.AMOCRM_TOKEN ?? "",
+    pipelineId: process.env.AMOCRM_PIPELINE_ID
+      ? Number(process.env.AMOCRM_PIPELINE_ID)
+      : undefined,
+  },
 };
 
 export function validateEnv(): void {

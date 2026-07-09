@@ -56,3 +56,27 @@ export async function getAllUserIds(filter?: {
 export async function getAllUsers(): Promise<IUser[]> {
   return UserModel.find().lean();
 }
+
+export async function getUserByTelegramId(
+  telegramId: number
+): Promise<IUser | null> {
+  return UserModel.findOne({ telegram_id: telegramId });
+}
+
+export async function setAmoLeadId(
+  telegramId: number,
+  amoLeadId: number
+): Promise<void> {
+  await UserModel.updateOne(
+    { telegram_id: telegramId },
+    { amo_lead_id: amoLeadId }
+  );
+}
+
+// Bot bloklangan/yetib bo'lmaydigan foydalanuvchini nofaol qilamiz.
+export async function deactivateUser(telegramId: number): Promise<void> {
+  await UserModel.updateOne(
+    { telegram_id: telegramId },
+    { is_active: false }
+  );
+}

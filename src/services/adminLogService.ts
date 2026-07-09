@@ -1,4 +1,5 @@
 import { AdminLogModel } from "../models/AdminLog";
+import { logger } from "../utils/logger";
 
 export async function logAdminAction(params: {
   adminId: number;
@@ -13,6 +14,6 @@ export async function logAdminAction(params: {
       timestamp: new Date(),
     });
   } catch (error) {
-    console.error("Failed to write admin log", error);
+    logger.error("Admin logni yozishda xato", error);
   }
 }

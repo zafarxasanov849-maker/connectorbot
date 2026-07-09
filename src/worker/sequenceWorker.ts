@@ -5,6 +5,7 @@ import { env, validateEnv } from "../config/env";
 import { redisConfig } from "../config/redis";
 import { SequenceJobData } from "../types/sequence";
 import { deliverContent } from "../services/deliveryService";
+import { handleDeliveryError } from "../utils/deliveryError";
 import { logger } from "../utils/logger";
 import { resolveQueueName } from "../queue/names";
 
@@ -18,7 +19,7 @@ async function processJob(job: Job<SequenceJobData>): Promise<void> {
   try {
     await deliverContent({ api, chatId, text, media, buttons });
   } catch (error) {
-    logger.error(`Failed to send sequence message to ${chatId}`, error);
+    await handleDeliveryError(chatId, error);
   }
 }
 
@@ -35,5 +36,14 @@ worker.on("completed", (job) => {
 worker.on("failed", (job, err) => {
   logger.error(`Sequence job ${job?.id} failed`, err);
 });
+
+const shutdown = async (signal: string): Promise<void> => {
+  logger.info(`${signal} olindi — sequence worker to'xtatilmoqda...`);
+  await worker.close();
+  await connection.quit();
+  process.exit(0);
+};
+process.once("SIGINT", () => void shutdown("SIGINT"));
+process.once("SIGTERM", () => void shutdown("SIGTERM"));
 
 logger.info("Sequence worker running...");

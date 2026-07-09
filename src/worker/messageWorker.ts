@@ -45,4 +45,13 @@ worker.on("failed", (job, err) => {
   logger.error(`Message job ${job?.id} failed`, err);
 });
 
+const shutdown = async (signal: string): Promise<void> => {
+  logger.info(`${signal} olindi — message worker to'xtatilmoqda...`);
+  await worker.close();
+  await connection.quit();
+  process.exit(0);
+};
+process.once("SIGINT", () => void shutdown("SIGINT"));
+process.once("SIGTERM", () => void shutdown("SIGTERM"));
+
 logger.info("Message worker running...");

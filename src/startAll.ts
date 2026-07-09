@@ -3,10 +3,12 @@ import { connectDatabase } from "./config/database";
 import { createBot } from "./bot/bot";
 import { logger } from "./utils/logger";
 import Redis from "ioredis";
+import mongoose from "mongoose";
 import { redisConfig } from "./config/redis";
 import { Worker, Job } from "bullmq";
 import { BroadcastJobData } from "./types/broadcast";
 import { deliverContent } from "./services/deliveryService";
+import { handleDeliveryError } from "./utils/deliveryError";
 import { SequenceJobData } from "./types/sequence";
 import { MessageJobData } from "./types/message";
 import { Api, InputFile } from "grammy";
@@ -16,32 +18,47 @@ async function bootstrap(): Promise<void> {
   validateEnv();
   await connectDatabase();
 
-  // Start bot without blocking the rest of the services.
   const bot = createBot();
   bot.start().catch((err) => {
-    logger.error("Bot stopped with error", err);
+    logger.error("Bot xato bilan to'xtadi", err);
     process.exit(1);
   });
   logger.info("Bot started (all-in-one).");
 
-  startBroadcastWorker();
-  startSequenceWorker();
-  startMessageWorker();
+  const workers = [
+    startBroadcastWorker(),
+    startSequenceWorker(),
+    startMessageWorker(),
+  ];
   logger.info("Workers started (broadcast, sequence, message).");
+
+  // Toza to'xtatish: SIGINT/SIGTERM'da bot, workerlar va ulanishlarni yopamiz.
+  const shutdown = async (signal: string): Promise<void> => {
+    logger.info(`${signal} olindi — to'xtatilmoqda...`);
+    try {
+      await bot.stop();
+      await Promise.all(workers.map((w) => w.close()));
+      await mongoose.disconnect();
+    } catch (err) {
+      logger.error("To'xtatishda xato", err);
+    } finally {
+      process.exit(0);
+    }
+  };
+  process.once("SIGINT", () => void shutdown("SIGINT"));
+  process.once("SIGTERM", () => void shutdown("SIGTERM"));
 }
 
-function startBroadcastWorker(): void {
+function startBroadcastWorker(): Worker<BroadcastJobData> {
   const api = new Api(env.botToken);
   const connection = new Redis(env.redisUrl, redisConfig);
 
   const processJob = async (job: Job<BroadcastJobData>): Promise<void> => {
-    const { chatIds, text, media, buttons } = job.data;
-    for (const chatId of chatIds) {
-      try {
-        await deliverContent({ api, chatId, text, media, buttons });
-      } catch (error) {
-        logger.error(`Failed to deliver to ${chatId}`, error);
-      }
+    const { chatId, text, media, buttons } = job.data;
+    try {
+      await deliverContent({ api, chatId, text, media, buttons });
+    } catch (error) {
+      await handleDeliveryError(chatId, error);
     }
   };
 
@@ -53,9 +70,10 @@ function startBroadcastWorker(): void {
 
   worker.on("completed", (job) => logger.info(`Broadcast job ${job.id} completed.`));
   worker.on("failed", (job, err) => logger.error(`Broadcast job ${job?.id} failed`, err));
+  return worker;
 }
 
-function startSequenceWorker(): void {
+function startSequenceWorker(): Worker<SequenceJobData> {
   const api = new Api(env.botToken);
   const connection = new Redis(env.redisUrl, redisConfig);
 
@@ -64,7 +82,7 @@ function startSequenceWorker(): void {
     try {
       await deliverContent({ api, chatId, text, media, buttons });
     } catch (error) {
-      logger.error(`Failed to send sequence message to ${chatId}`, error);
+      await handleDeliveryError(chatId, error);
     }
   };
 
@@ -76,9 +94,10 @@ function startSequenceWorker(): void {
 
   worker.on("completed", (job) => logger.info(`Sequence job ${job.id} completed`));
   worker.on("failed", (job, err) => logger.error(`Sequence job ${job?.id} failed`, err));
+  return worker;
 }
 
-function startMessageWorker(): void {
+function startMessageWorker(): Worker<MessageJobData> {
   const api = new Api(env.botToken);
   const connection = new Redis(env.redisUrl, redisConfig);
 
@@ -109,6 +128,7 @@ function startMessageWorker(): void {
 
   worker.on("completed", (job) => logger.info(`Message job ${job.id} completed`));
   worker.on("failed", (job, err) => logger.error(`Message job ${job?.id} failed`, err));
+  return worker;
 }
 
 bootstrap().catch((error) => {

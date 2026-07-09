@@ -4,6 +4,7 @@ import { getContentBySourceTag } from "../../services/contentService";
 import { env } from "../../config/env";
 import { scheduleSequenceMessages } from "../../services/sequenceService";
 import { enqueueTextMessage } from "../../services/messageQueueService";
+import { logger } from "../../utils/logger";
 
 export async function startHandler(ctx: BotContext): Promise<void> {
   const sourceTag =
@@ -45,7 +46,7 @@ export async function startHandler(ctx: BotContext): Promise<void> {
       text: env.defaultWelcome,
     });
   } catch (error) {
-    console.error("Error in /start handler", error);
+    logger.error("/start handlerida xato", error);
     await enqueueTextMessage({
       chatId: ctx.chat?.id ?? 0,
       text: "Xatolik yuz berdi, iltimos keyinroq urinib ko‘ring.",

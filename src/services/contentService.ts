@@ -1,8 +1,6 @@
 import {
   ContentPackageModel,
   IContentPackage,
-  IMediaFile,
-  IContentButton,
   ISequenceMessage,
 } from "../models/ContentPackage";
 
@@ -46,21 +44,11 @@ export async function updateSequenceMessages(params: {
 
 export async function setContentPackage(params: {
   sourceTag: string;
-  text?: string;
-  media?: IMediaFile[];
-  buttons?: IContentButton[];
   messages?: ISequenceMessage[];
 }): Promise<IContentPackage> {
-  const update = {
-    text_message: params.text,
-    media_files: params.media ?? [],
-    buttons: params.buttons ?? [],
-    messages: normalizeSequenceMessages(params.messages ?? []),
-  };
-
   return ContentPackageModel.findOneAndUpdate(
     { source_tag: params.sourceTag },
-    update,
+    { messages: normalizeSequenceMessages(params.messages ?? []) },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
 }

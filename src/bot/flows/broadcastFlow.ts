@@ -201,8 +201,7 @@ export async function handleBroadcastCallback(
     }
 
     const queue = getQueue();
-    await queueBroadcast(queue, {
-      chatIds: recipients,
+    await queueBroadcast(queue, recipients, {
       text: flow.text,
       media: flow.media,
       buttons: flow.buttons,

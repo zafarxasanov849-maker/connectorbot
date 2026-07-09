@@ -10,6 +10,7 @@ import {
 } from "../../services/contentService";
 import { deliverContent } from "../../services/deliveryService";
 import { extractMedia } from "../../utils/messageParser";
+import { isValidTag, TAG_HINT } from "../../utils/tag";
 
 async function buildSetContentState(sourceTag?: string) {
   const existing = sourceTag ? await getPackageWithMessages(sourceTag) : null;
@@ -96,6 +97,12 @@ export async function startSetContentFlow(
   };
   if (!sourceTag) {
     await renderTagSelection(ctx);
+  } else if (!isValidTag(sourceTag)) {
+    await enqueueTextMessage({
+      chatId: ctx.chat?.id ?? ctx.from?.id ?? 0,
+      text: TAG_HINT,
+    });
+    await renderTagSelection(ctx);
   } else {
     const nextFlow = await buildSetContentState(sourceTag);
     ctx.session.setContentFlow = nextFlow;
@@ -117,6 +124,13 @@ export async function handleSetContentMessage(
       ("text" in (ctx.message ?? {}) && ctx.message?.text?.trim()) || undefined;
     if (!sourceTag) {
       await renderTagSelection(ctx);
+      return true;
+    }
+    if (!isValidTag(sourceTag)) {
+      await enqueueTextMessage({
+        chatId: ctx.chat?.id ?? ctx.from?.id ?? 0,
+        text: TAG_HINT,
+      });
       return true;
     }
     const nextFlow = await buildSetContentState(sourceTag);

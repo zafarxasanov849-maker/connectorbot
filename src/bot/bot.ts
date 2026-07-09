@@ -2,14 +2,13 @@ import { Bot, session, Composer } from "grammy";
 import { env } from "../config/env";
 import { BotContext, SessionData } from "./context";
 import { startHandler } from "./handlers/start";
-import { adminOnly } from "./middleware/adminOnly";
 import { statsHandler, exportHandler, linksHandler } from "./handlers/admin";
-import { enqueueTextMessage } from "../services/messageQueueService";
 import {
   showAdminMenu,
   handleAdminMenuMessage,
 } from "./handlers/adminMenu";
-import { seedAdmins } from "../services/adminService";
+import { userMessageHandler } from "./handlers/userMessage";
+import { isAdmin, seedAdmins } from "../services/adminService";
 import {
   handleBroadcastCallback,
   handleBroadcastMessage,
@@ -25,6 +24,7 @@ import {
   handleManageCommand,
   handleManageMessage,
 } from "./flows/manageContentFlow";
+import { logger } from "../utils/logger";
 
 export function createBot(): Bot<BotContext> {
   const bot = new Bot<BotContext>(env.botToken);
@@ -35,23 +35,22 @@ export function createBot(): Bot<BotContext> {
     })
   );
 
+  // /start hamma uchun ochiq.
   bot.command("start", startHandler);
 
+  // --- Admin qismi ---
   const admin = new Composer<BotContext>();
-  admin.use(adminOnly);
   admin.command("admin", showAdminMenu);
   admin.command("stats", statsHandler);
   admin.command("export", exportHandler);
   admin.command("links", linksHandler);
-  admin.command("manage", async (ctx) => handleManageCommand(ctx));
-  admin.command("broadcast", async (ctx) => startBroadcastFlow(ctx));
-  admin.command("setcontent", (ctx) => {
-    const tag = ctx.match?.trim();
-    return startSetContentFlow(ctx, tag);
-  });
+  admin.command("manage", (ctx) => handleManageCommand(ctx));
+  admin.command("broadcast", (ctx) => startBroadcastFlow(ctx));
+  admin.command("setcontent", (ctx) =>
+    startSetContentFlow(ctx, ctx.match?.trim() || undefined)
+  );
 
-  // Flow handlers (admin only)
-  admin.on("message", async (ctx, next) => {
+  admin.on("message", async (ctx) => {
     const handled =
       (await handleAdminMenuMessage(ctx)) ||
       (await handleBroadcastMessage(ctx)) ||
@@ -59,38 +58,38 @@ export function createBot(): Bot<BotContext> {
       (await handleManageMessage(ctx));
     if (!handled) {
       await showAdminMenu(ctx);
-      return;
     }
-    return;
   });
 
-  admin.on("callback_query:data", async (ctx, next) => {
-    const handled =
+  admin.on("callback_query:data", async (ctx) => {
+    // Telegram'da tugmaning "yuklanish" holatini to'xtatamiz.
+    await ctx.answerCallbackQuery().catch(() => {});
+    await (
       (await handleBroadcastCallback(ctx)) ||
       (await handleSetContentCallback(ctx)) ||
-      (await handleManageCallback(ctx));
-    if (!handled) return next();
+      (await handleManageCallback(ctx))
+    );
   });
 
-  bot.use(admin);
+  // Admin composer FAQAT adminlar uchun ishlaydi.
+  // Admin bo'lmaganlar uni chetlab, oddiy foydalanuvchi handleriga o'tadi.
+  bot
+    .filter(async (ctx) => {
+      const id = ctx.from?.id;
+      return id ? await isAdmin(id) : false;
+    })
+    .use(admin);
+
+  // Oddiy (admin bo'lmagan) foydalanuvchilarning xabarlari — AmoCRM'ga yo'naltiriladi.
+  bot.on("message", userMessageHandler);
 
   bot.catch((err) => {
-    console.error("Bot error", err);
-  });
-
-  bot.use(async (ctx) => {
-    if (ctx.message?.text?.startsWith("/")) return;
-    await enqueueTextMessage({
-      chatId: ctx.chat?.id ?? ctx.from?.id ?? 0,
-      text: "Noma’lum buyruq. Menyudan foydalaning yoki /start ni yuboring.",
-    });
+    logger.error("Bot xatosi", err);
   });
 
   seedAdmins(
-    env.adminIds
-      .map((id) => Number(id))
-      .filter((id) => Number.isFinite(id))
-  ).catch((error) => console.error("Failed to seed admins", error));
+    env.adminIds.map((id) => Number(id)).filter((id) => Number.isFinite(id))
+  ).catch((error) => logger.error("Adminlarni seed qilishda xato", error));
 
   return bot;
 }

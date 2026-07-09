@@ -1,6 +1,7 @@
 import { Api, InlineKeyboard } from "grammy";
 import { IMediaFile, IContentButton } from "../models/ContentPackage";
 import { buildInlineKeyboard } from "../utils/keyboard";
+import { logger } from "../utils/logger";
 
 export async function deliverContent(params: {
   api: Api;
@@ -67,7 +68,7 @@ export async function deliverContent(params: {
           return;
       }
     } catch (error) {
-      console.error("Failed to send media, falling back to text", error);
+      logger.warn("Media yuborib bo'lmadi, matnga o'tilmoqda", error);
     }
   }
 

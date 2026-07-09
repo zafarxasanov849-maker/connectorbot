@@ -1,7 +1,47 @@
 import { Api, InlineKeyboard } from "grammy";
 import { IMediaFile, IContentButton } from "../models/ContentPackage";
 import { buildInlineKeyboard } from "../utils/keyboard";
+import { getOrCreateClickToken } from "./clickService";
 import { logger } from "../utils/logger";
+
+// Bot username'ini bir marta olib keshlaymiz (kuzatuv havolalari uchun).
+let cachedUsername: string | undefined;
+async function getBotUsername(api: Api): Promise<string | undefined> {
+  if (cachedUsername) return cachedUsername;
+  try {
+    cachedUsername = (await api.getMe()).username;
+  } catch {
+    return undefined;
+  }
+  return cachedUsername;
+}
+
+// Kuzatuvli klaviatura: har tugma botga qaytadigan `t.me/bot?start=<token>`
+// havolasiga aylanadi. Username olinmasa, oddiy URL-tugmalarga qaytamiz.
+async function buildTrackingKeyboard(
+  api: Api,
+  buttons: IContentButton[],
+  tracking: { sourceTag: string; order: number }
+): Promise<InlineKeyboard | undefined> {
+  if (!buttons.length) return undefined;
+  const username = await getBotUsername(api);
+  if (!username) return buildInlineKeyboard(buttons);
+
+  const kb = new InlineKeyboard();
+  for (let i = 0; i < buttons.length; i++) {
+    const b = buttons[i];
+    const token = await getOrCreateClickToken({
+      sourceTag: tracking.sourceTag,
+      order: tracking.order,
+      buttonIndex: i,
+      url: b.url,
+      label: b.label,
+    });
+    kb.url(b.label, `https://t.me/${username}?start=${token}`);
+    kb.row();
+  }
+  return kb;
+}
 
 export async function deliverContent(params: {
   api: Api;
@@ -9,10 +49,11 @@ export async function deliverContent(params: {
   text?: string;
   media?: IMediaFile[];
   buttons?: IContentButton[];
+  tracking?: { sourceTag: string; order: number };
 }): Promise<void> {
-  const replyMarkup: InlineKeyboard | undefined = buildInlineKeyboard(
-    params.buttons ?? []
-  );
+  const replyMarkup: InlineKeyboard | undefined = params.tracking
+    ? await buildTrackingKeyboard(params.api, params.buttons ?? [], params.tracking)
+    : buildInlineKeyboard(params.buttons ?? []);
 
   const media = params.media ?? [];
   if (media.length) {

@@ -15,6 +15,10 @@ export const env = {
   logLevel: process.env.LOG_LEVEL ?? "info",
   // Oddiy foydalanuvchiga ko'rsatiladigan admin akkaunti (username, @ siz).
   adminContact: (process.env.ADMIN_CONTACT ?? "Shokir_tursun").replace(/^@/, ""),
+  // Sequence tugmalari bosilishini kuzatish (bot orqali qaytarish usuli).
+  // "on" bo'lganda yoqiladi; standart o'chiq (hozirgi foydalanuvchilarga tegmaydi).
+  clickTracking:
+    (process.env.SEQUENCE_CLICK_TRACKING ?? "off").toLowerCase() === "on",
   amoCrm: {
     subdomain: process.env.AMOCRM_SUBDOMAIN ?? "",
     token: process.env.AMOCRM_TOKEN ?? "",

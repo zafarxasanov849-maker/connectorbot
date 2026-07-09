@@ -32,6 +32,7 @@ export interface FunnelReport {
   sourceTag: string;
   started: number;
   steps: FunnelStep[];
+  clicks: FunnelStep[];
 }
 
 // Bitta tag bo'yicha voronkani hisoblaydi: nechta odam boshladi va
@@ -56,5 +57,16 @@ export async function getFunnel(sourceTag: string): Promise<FunnelReport> {
     count: s.count,
   }));
 
-  return { sourceTag, started, steps };
+  const clicksAgg = await SequenceEventModel.aggregate([
+    { $match: { source_tag: sourceTag, type: "clicked" } },
+    { $group: { _id: "$order", users: { $addToSet: "$telegram_id" } } },
+    { $project: { _id: 0, order: "$_id", count: { $size: "$users" } } },
+    { $sort: { order: 1 } },
+  ]);
+  const clicks: FunnelStep[] = clicksAgg.map((s: { order?: number; count: number }) => ({
+    order: s.order ?? 0,
+    count: s.count,
+  }));
+
+  return { sourceTag, started, steps, clicks };
 }

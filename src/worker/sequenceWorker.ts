@@ -17,8 +17,12 @@ const connection = new Redis(env.redisUrl, redisConfig);
 
 async function processJob(job: Job<SequenceJobData>): Promise<void> {
   const { chatId, text, media, buttons, sourceTag, order } = job.data;
+  const tracking =
+    env.clickTracking && sourceTag
+      ? { sourceTag, order: order ?? 0 }
+      : undefined;
   try {
-    await deliverContent({ api, chatId, text, media, buttons });
+    await deliverContent({ api, chatId, text, media, buttons, tracking });
     if (sourceTag) {
       await recordSequenceEvent({
         sourceTag,

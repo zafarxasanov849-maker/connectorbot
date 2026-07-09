@@ -27,6 +27,13 @@ function renderFunnel(report: FunnelReport, messageCount: number): string {
     const count = step?.count ?? 0;
     const pct = Math.round((count / base) * 100);
     lines.push(`#${i + 1}  ${bar(pct)}  ${count} (${pct}%)`);
+
+    // Tugma bosilishi (agar bo'lsa) — CTR yetkazilganlarga nisbatan.
+    const clicked = report.clicks.find((c) => c.order === i)?.count ?? 0;
+    if (clicked > 0) {
+      const ctr = count ? Math.round((clicked / count) * 100) : 0;
+      lines.push(`     👆 Bosgan: ${clicked} (CTR ${ctr}%)`);
+    }
   }
 
   if (total > 0) {

@@ -20,7 +20,7 @@ export const env = {
   clickTracking:
     (process.env.SEQUENCE_CLICK_TRACKING ?? "off").toLowerCase() === "on",
   // Funnel dashboard (Mini App) HTTPS manzili, masalan https://connecterbot.duckdns.org
-  webappUrl: process.env.WEBAPP_URL ?? "",
+  webappUrl: (process.env.WEBAPP_URL ?? "").replace(/\/$/, ""),
   amoCrm: {
     subdomain: process.env.AMOCRM_SUBDOMAIN ?? "",
     token: process.env.AMOCRM_TOKEN ?? "",

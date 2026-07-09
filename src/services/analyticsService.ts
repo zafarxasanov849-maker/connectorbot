@@ -9,6 +9,7 @@ export async function recordSequenceEvent(params: {
   telegramId: number;
   type: SequenceEventType;
   order?: number;
+  buttonIndex?: number;
 }): Promise<void> {
   try {
     await SequenceEventModel.create({
@@ -16,6 +17,7 @@ export async function recordSequenceEvent(params: {
       telegram_id: params.telegramId,
       type: params.type,
       order: params.order,
+      button_index: params.buttonIndex,
       created_at: new Date(),
     });
   } catch {

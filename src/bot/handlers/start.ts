@@ -4,9 +4,6 @@ import { getContentBySourceTag } from "../../services/contentService";
 import { env } from "../../config/env";
 import { scheduleSequenceMessages } from "../../services/sequenceService";
 import { enqueueTextMessage } from "../../services/messageQueueService";
-import { resolveClickToken } from "../../services/clickService";
-import { recordSequenceEvent } from "../../services/analyticsService";
-import { InlineKeyboard } from "grammy";
 import { logger } from "../../utils/logger";
 
 export async function startHandler(ctx: BotContext): Promise<void> {
@@ -25,27 +22,6 @@ export async function startHandler(ctx: BotContext): Promise<void> {
         text: "Profil ma’lumotlari olinmadi.",
       });
       return;
-    }
-
-    // Klik havolasi (tugma bosilishi): k_ bilan boshlansa — bosishni yozib,
-    // foydalanuvchini haqiqiy havolaga yo'naltiramiz.
-    if (sourceTag && sourceTag.startsWith("k_")) {
-      const link = await resolveClickToken(sourceTag);
-      if (link) {
-        await recordSequenceEvent({
-          sourceTag: link.source_tag,
-          telegramId: from.id,
-          type: "clicked",
-          order: link.order,
-        });
-        await enqueueTextMessage({
-          chatId: ctx.chat?.id ?? from.id,
-          text: "🔗 Havolani ochish uchun tugmani bosing:",
-          replyMarkup: new InlineKeyboard().url(link.label || "Ochish", link.url),
-        });
-        return;
-      }
-      // token topilmasa — oddiy oqim davom etadi
     }
 
     const { user } = await findOrCreateUser(

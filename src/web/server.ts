@@ -4,7 +4,8 @@ import { env } from "../config/env";
 import { validateInitData } from "./auth";
 import { isAdmin } from "../services/adminService";
 import { listContentTags, getPackageWithMessages } from "../services/contentService";
-import { getFunnel } from "../services/analyticsService";
+import { getFunnel, recordSequenceEvent } from "../services/analyticsService";
+import { verifyClickToken } from "../utils/clickToken";
 import { logger } from "../utils/logger";
 
 // Funnel dashboard (Telegram Mini App) uchun web-server.
@@ -12,6 +13,30 @@ export function startWebServer(): void {
   const port = Number(process.env.WEB_PORT) || 3000;
   const app = express();
   app.use(express.json());
+
+  // Klik-yo'naltirish (ochiq): bosishni yozib, haqiqiy havolaga 302 qiladi.
+  app.get("/r/:token", async (req: Request, res: Response) => {
+    const payload = verifyClickToken(req.params.token);
+    if (!payload) {
+      res.status(400).send("Invalid link");
+      return;
+    }
+    const pkg = await getPackageWithMessages(payload.t);
+    const url = pkg?.messages?.[payload.o]?.buttons?.[payload.b]?.url;
+    if (!url) {
+      res.status(404).send("Link not found");
+      return;
+    }
+    // Fire-and-forget: yozish javobni sekinlashtirmasin.
+    void recordSequenceEvent({
+      sourceTag: payload.t,
+      telegramId: payload.u,
+      type: "clicked",
+      order: payload.o,
+      buttonIndex: payload.b,
+    });
+    res.redirect(302, url);
+  });
 
   // Faqat admin Mini App'dan kirganlar API'ga ruxsat oladi.
   const auth = async (

@@ -1,45 +1,32 @@
 import { Api, InlineKeyboard } from "grammy";
 import { IMediaFile, IContentButton } from "../models/ContentPackage";
 import { buildInlineKeyboard } from "../utils/keyboard";
-import { getOrCreateClickToken } from "./clickService";
+import { signClickToken } from "../utils/clickToken";
+import { env } from "../config/env";
 import { logger } from "../utils/logger";
 
-// Bot username'ini bir marta olib keshlaymiz (kuzatuv havolalari uchun).
-let cachedUsername: string | undefined;
-async function getBotUsername(api: Api): Promise<string | undefined> {
-  if (cachedUsername) return cachedUsername;
-  try {
-    cachedUsername = (await api.getMe()).username;
-  } catch {
-    return undefined;
-  }
-  return cachedUsername;
-}
-
-// Kuzatuvli klaviatura: har tugma botga qaytadigan `t.me/bot?start=<token>`
-// havolasiga aylanadi. Username olinmasa, oddiy URL-tugmalarga qaytamiz.
-async function buildTrackingKeyboard(
-  api: Api,
+// Kuzatuvli klaviatura: har tugma domen orqali `<webappUrl>/r/<token>` ga
+// yo'naltiriladi. Server bosishni yozib, foydalanuvchini haqiqiy havolaga
+// bir zumda (1 marta bosish) o'tkazadi. webappUrl bo'lmasa — oddiy tugmalar.
+function buildTrackingKeyboard(
+  chatId: number,
   buttons: IContentButton[],
   tracking: { sourceTag: string; order: number }
-): Promise<InlineKeyboard | undefined> {
+): InlineKeyboard | undefined {
   if (!buttons.length) return undefined;
-  const username = await getBotUsername(api);
-  if (!username) return buildInlineKeyboard(buttons);
+  if (!env.webappUrl) return buildInlineKeyboard(buttons);
 
   const kb = new InlineKeyboard();
-  for (let i = 0; i < buttons.length; i++) {
-    const b = buttons[i];
-    const token = await getOrCreateClickToken({
-      sourceTag: tracking.sourceTag,
-      order: tracking.order,
-      buttonIndex: i,
-      url: b.url,
-      label: b.label,
+  buttons.forEach((b, i) => {
+    const token = signClickToken({
+      u: chatId,
+      t: tracking.sourceTag,
+      o: tracking.order,
+      b: i,
     });
-    kb.url(b.label, `https://t.me/${username}?start=${token}`);
+    kb.url(b.label, `${env.webappUrl}/r/${token}`);
     kb.row();
-  }
+  });
   return kb;
 }
 
@@ -52,7 +39,7 @@ export async function deliverContent(params: {
   tracking?: { sourceTag: string; order: number };
 }): Promise<void> {
   const replyMarkup: InlineKeyboard | undefined = params.tracking
-    ? await buildTrackingKeyboard(params.api, params.buttons ?? [], params.tracking)
+    ? buildTrackingKeyboard(params.chatId, params.buttons ?? [], params.tracking)
     : buildInlineKeyboard(params.buttons ?? []);
 
   const media = params.media ?? [];

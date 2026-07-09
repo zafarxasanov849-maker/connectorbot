@@ -62,13 +62,7 @@ export function startWebServer(): void {
   });
 
   app.get("/api/funnel/:tag", auth, async (req: Request, res: Response) => {
-    const tag = req.params.tag;
-    const pkg = await getPackageWithMessages(tag);
-    const report = await getFunnel(tag);
-    res.json({
-      ...report,
-      messageCount: pkg?.messages?.length ?? report.steps.length,
-    });
+    res.json(await getFunnel(req.params.tag));
   });
 
   // Statik dashboard (webapp/index.html)

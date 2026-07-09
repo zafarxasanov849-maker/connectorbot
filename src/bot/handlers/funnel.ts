@@ -1,7 +1,7 @@
 import { InlineKeyboard } from "grammy";
 import { BotContext } from "../context";
 import { enqueueTextMessage } from "../../services/messageQueueService";
-import { listContentTags, getPackageWithMessages } from "../../services/contentService";
+import { listContentTags } from "../../services/contentService";
 import { getFunnel, FunnelReport } from "../../services/analyticsService";
 
 const BAR_WIDTH = 10;
@@ -12,36 +12,29 @@ function bar(pct: number): string {
   return "█".repeat(filled) + "░".repeat(BAR_WIDTH - filled);
 }
 
-function renderFunnel(report: FunnelReport, messageCount: number): string {
-  // Foizlar boshlaganlar soniga nisbatan hisoblanadi.
-  const base = report.started || report.steps[0]?.count || 1;
+// Kogort voronka: foizlar "yetib ulgurishi mumkin bo'lganlar"ga nisbatan.
+function renderFunnel(report: FunnelReport): string {
   const lines = [
     `📊 "${report.sourceTag}" voronkasi`,
     `👥 Boshlaganlar: ${report.started} kishi`,
     "",
   ];
 
-  const total = messageCount || report.steps.length;
-  for (let i = 0; i < total; i++) {
-    const step = report.steps.find((s) => s.order === i);
-    const count = step?.count ?? 0;
-    const pct = Math.round((count / base) * 100);
-    lines.push(`#${i + 1}  ${bar(pct)}  ${count} (${pct}%)`);
-
-    // Tugma bosilishi (agar bo'lsa) — CTR yetkazilganlarga nisbatan.
-    const clicked = report.clicks.find((c) => c.order === i)?.count ?? 0;
-    if (clicked > 0) {
-      const ctr = count ? Math.round((clicked / count) * 100) : 0;
-      lines.push(`     👆 Bosgan: ${clicked} (CTR ${ctr}%)`);
-    }
+  if (!report.steps.length) {
+    lines.push("Bu tag uchun hali xabar yo‘q.");
+    return lines.join("\n");
   }
 
-  if (total > 0) {
-    const last = report.steps.find((s) => s.order === total - 1)?.count ?? 0;
-    const conv = Math.round((last / base) * 100);
-    lines.push("", `🎯 Yakuniy konversiya: ${conv}%`);
-  }
+  report.steps.forEach((s, i) => {
+    lines.push(`#${i + 1}  ${bar(s.reachPct)}  ${s.delivered}/${s.matured} (${s.reachPct}%)`);
+    const extra: string[] = [];
+    if (s.waiting > 0) extra.push(`⏳ kutmoqda: ${s.waiting}`);
+    if (s.clicked > 0) extra.push(`👆 bosgan: ${s.clicked} (CTR ${s.ctr}%)`);
+    if (extra.length) lines.push(`     ${extra.join("   ")}`);
+  });
 
+  const last = report.steps[report.steps.length - 1];
+  lines.push("", `🎯 Yakuniy konversiya: ${last.reachPct}%`);
   return lines.join("\n");
 }
 
@@ -68,9 +61,7 @@ export async function handleFunnelCallback(ctx: BotContext): Promise<boolean> {
   if (!data?.startsWith("funnel_tag:")) return false;
 
   const tag = data.slice("funnel_tag:".length);
-  const pkg = await getPackageWithMessages(tag);
   const report = await getFunnel(tag);
-  const text = renderFunnel(report, pkg?.messages?.length ?? report.steps.length);
-  await ctx.editMessageText(text);
+  await ctx.editMessageText(renderFunnel(report));
   return true;
 }

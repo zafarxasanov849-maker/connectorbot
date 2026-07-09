@@ -42,6 +42,7 @@
     .track { height: 10px; background: rgba(125,139,153,.25); border-radius: 6px; overflow: hidden; }
     .fill { height: 100%; background: var(--accent); border-radius: 6px; transition: width .5s ease; }
     .click { font-size: 12px; color: #66bb6a; margin-top: 6px; }
+    .wait { font-size: 12px; color: var(--hint); margin-top: 6px; }
     .drop { font-size: 12px; color: #e57373; margin-top: 6px; }
     .empty, .error { text-align: center; color: var(--hint); padding: 40px 0; font-size: 14px; }
     .loader { text-align: center; padding: 40px 0; color: var(--hint); }
@@ -78,10 +79,8 @@
     }
 
     function renderFunnel(data) {
-      const base = data.started || (data.steps[0] && data.steps[0].count) || 1;
-      const total = data.messageCount || data.steps.length;
-      const lastCount = (data.steps.find(s => s.order === total - 1) || {}).count || 0;
-      const conv = pct(lastCount, base);
+      const steps = data.steps || [];
+      const conv = steps.length ? steps[steps.length - 1].reachPct : 0;
 
       let html = `
         <div class="stats">
@@ -89,28 +88,21 @@
           <div class="stat"><div class="num">${conv}%</div><div class="lbl">Konversiya</div></div>
         </div>`;
 
-      if (!total) {
+      if (!steps.length) {
         html += `<div class="empty">Bu tag uchun hali xabar yo'q.</div>`;
         contentEl.innerHTML = html;
         return;
       }
 
-      let prev = base;
-      for (let i = 0; i < total; i++) {
-        const step = data.steps.find(s => s.order === i) || { count: 0 };
-        const clicked = (data.clicks && data.clicks.find(c => c.order === i) || {}).count || 0;
-        const ctr = step.count ? Math.round((clicked / step.count) * 100) : 0;
-        const p = pct(step.count, base);
-        const drop = prev - step.count;
+      steps.forEach((s, i) => {
         html += `
           <div class="step">
-            <div class="step-head"><span>#${i + 1}-xabar</span><span class="cnt">${step.count} kishi · ${p}%</span></div>
-            <div class="track"><div class="fill" style="width:${p}%"></div></div>
-            ${clicked > 0 ? `<div class="click">👆 Bosgan: ${clicked} kishi · CTR ${ctr}%</div>` : ``}
-            ${drop > 0 ? `<div class="drop">▼ ${drop} kishi tushib qoldi</div>` : ``}
+            <div class="step-head"><span>#${i + 1}-xabar</span><span class="cnt">${s.delivered}/${s.matured} · ${s.reachPct}%</span></div>
+            <div class="track"><div class="fill" style="width:${s.reachPct}%"></div></div>
+            ${s.clicked > 0 ? `<div class="click">👆 Bosgan: ${s.clicked} kishi · CTR ${s.ctr}%</div>` : ``}
+            ${s.waiting > 0 ? `<div class="wait">⏳ Kutmoqda: ${s.waiting} kishi</div>` : ``}
           </div>`;
-        prev = step.count;
-      }
+      });
       contentEl.innerHTML = html;
     }
 

@@ -22,6 +22,8 @@ RUN npm ci --omit=dev
 
 # Kompilyatsiya qilingan kodni build bosqichidan olamiz
 COPY --from=builder /app/dist ./dist
+# Mini App dashboard statik fayllari
+COPY webapp ./webapp
 
-# Bot + barcha workerlar bitta jarayonda (startAll)
+# Bot + barcha workerlar + web-server bitta jarayonda (startAll)
 CMD ["node", "dist/startAll.js"]

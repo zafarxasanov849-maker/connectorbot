@@ -14,6 +14,7 @@ import { SequenceJobData } from "./types/sequence";
 import { MessageJobData } from "./types/message";
 import { Api, InputFile } from "grammy";
 import { resolveQueueName } from "./queue/names";
+import { startWebServer } from "./web/server";
 
 async function bootstrap(): Promise<void> {
   validateEnv();
@@ -32,6 +33,9 @@ async function bootstrap(): Promise<void> {
     startMessageWorker(),
   ];
   logger.info("Workers started (broadcast, sequence, message).");
+
+  // Funnel dashboard (Mini App) web-serveri.
+  startWebServer();
 
   // Toza to'xtatish: SIGINT/SIGTERM'da bot, workerlar va ulanishlarni yopamiz.
   const shutdown = async (signal: string): Promise<void> => {

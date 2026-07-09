@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Voronka analitikasi</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: var(--tg-theme-bg-color, #17212b);
+      --card: var(--tg-theme-secondary-bg-color, #232e3c);
+      --text: var(--tg-theme-text-color, #ffffff);
+      --hint: var(--tg-theme-hint-color, #7d8b99);
+      --accent: var(--tg-theme-button-color, #3390ec);
+      --accent-text: var(--tg-theme-button-text-color, #ffffff);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--text);
+      padding: 16px; -webkit-font-smoothing: antialiased;
+    }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    .sub { color: var(--hint); font-size: 13px; margin-bottom: 16px; }
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+    .tag {
+      padding: 8px 14px; border-radius: 20px; background: var(--card);
+      color: var(--text); font-size: 14px; cursor: pointer; border: 1px solid transparent;
+      transition: all .15s;
+    }
+    .tag.active { background: var(--accent); color: var(--accent-text); }
+    .stats { display: flex; gap: 10px; margin-bottom: 20px; }
+    .stat {
+      flex: 1; background: var(--card); border-radius: 14px; padding: 14px;
+      text-align: center;
+    }
+    .stat .num { font-size: 26px; font-weight: 700; }
+    .stat .lbl { font-size: 12px; color: var(--hint); margin-top: 2px; }
+    .step { background: var(--card); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+    .step-head { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; }
+    .step-head .cnt { color: var(--hint); }
+    .track { height: 10px; background: rgba(125,139,153,.25); border-radius: 6px; overflow: hidden; }
+    .fill { height: 100%; background: var(--accent); border-radius: 6px; transition: width .5s ease; }
+    .drop { font-size: 12px; color: #e57373; margin-top: 6px; }
+    .empty, .error { text-align: center; color: var(--hint); padding: 40px 0; font-size: 14px; }
+    .loader { text-align: center; padding: 40px 0; color: var(--hint); }
+  </style>
+</head>
+<body>
+  <h1>📊 Voronka analitikasi</h1>
+  <div class="sub" id="subtitle">Tagni tanlang</div>
+  <div class="tags" id="tags"></div>
+  <div id="content"><div class="loader">Yuklanmoqda…</div></div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    tg?.ready();
+    tg?.expand();
+
+    const initData = tg?.initData || "";
+    const headers = { "X-Telegram-Init-Data": initData };
+
+    const tagsEl = document.getElementById("tags");
+    const contentEl = document.getElementById("content");
+    const subEl = document.getElementById("subtitle");
+    let activeTag = null;
+
+    async function api(path) {
+      const res = await fetch(path, { headers });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    }
+
+    function pct(count, base) {
+      if (!base) return 0;
+      return Math.round((count / base) * 100);
+    }
+
+    function renderFunnel(data) {
+      const base = data.started || (data.steps[0] && data.steps[0].count) || 1;
+      const total = data.messageCount || data.steps.length;
+      const lastCount = (data.steps.find(s => s.order === total - 1) || {}).count || 0;
+      const conv = pct(lastCount, base);
+
+      let html = `
+        <div class="stats">
+          <div class="stat"><div class="num">${data.started}</div><div class="lbl">Boshlaganlar</div></div>
+          <div class="stat"><div class="num">${conv}%</div><div class="lbl">Konversiya</div></div>
+        </div>`;
+
+      if (!total) {
+        html += `<div class="empty">Bu tag uchun hali xabar yo'q.</div>`;
+        contentEl.innerHTML = html;
+        return;
+      }
+
+      let prev = base;
+      for (let i = 0; i < total; i++) {
+        const step = data.steps.find(s => s.order === i) || { count: 0 };
+        const p = pct(step.count, base);
+        const drop = prev - step.count;
+        html += `
+          <div class="step">
+            <div class="step-head"><span>#${i + 1}-xabar</span><span class="cnt">${step.count} kishi · ${p}%</span></div>
+            <div class="track"><div class="fill" style="width:${p}%"></div></div>
+            ${drop > 0 ? `<div class="drop">▼ ${drop} kishi tushib qoldi</div>` : ``}
+          </div>`;
+        prev = step.count;
+      }
+      contentEl.innerHTML = html;
+    }
+
+    async function loadFunnel(tag) {
+      activeTag = tag;
+      subEl.textContent = `"${tag}" voronkasi`;
+      [...tagsEl.children].forEach(c => c.classList.toggle("active", c.dataset.tag === tag));
+      contentEl.innerHTML = `<div class="loader">Yuklanmoqda…</div>`;
+      try {
+        const data = await api(`/api/funnel/${encodeURIComponent(tag)}`);
+        renderFunnel(data);
+      } catch (e) {
+        contentEl.innerHTML = `<div class="error">Xatolik: ${e.message}</div>`;
+      }
+    }
+
+    async function init() {
+      try {
+        const { tags } = await api("/api/tags");
+        if (!tags.length) {
+          tagsEl.innerHTML = "";
+          contentEl.innerHTML = `<div class="empty">Hali hech qanday tag yo'q.<br>Botda /setcontent orqali kontent yarating.</div>`;
+          subEl.textContent = "";
+          return;
+        }
+        tagsEl.innerHTML = "";
+        tags.forEach(t => {
+          const el = document.createElement("div");
+          el.className = "tag";
+          el.textContent = t;
+          el.dataset.tag = t;
+          el.onclick = () => loadFunnel(t);
+          tagsEl.appendChild(el);
+        });
+        loadFunnel(tags[0]);
+      } catch (e) {
+        contentEl.innerHTML = `<div class="error">Kirish rad etildi yoki xatolik: ${e.message}<br><br>Bu panelni bot ichidagi tugma orqali oching.</div>`;
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

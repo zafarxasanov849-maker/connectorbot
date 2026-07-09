@@ -41,6 +41,11 @@ services:
       # (bu qiymatlar .env dagi localhost qiymatlarini bekor qiladi)
       MONGO_URI: mongodb://mongo:27017/connector-bot
       REDIS_URL: redis://redis:6379
+      WEB_PORT: 3000
+    # Funnel dashboard web-serveri. Hozircha faqat localhost'ga ochiq (xavfsiz).
+    # Domen ulanganda Caddy/nginx orqali HTTPS bilan public qilinadi.
+    ports:
+      - "127.0.0.1:3000:3000"
     depends_on:
       mongo:
         condition: service_healthy

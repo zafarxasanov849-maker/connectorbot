@@ -13,6 +13,8 @@ export const env = {
     .map((id) => id.trim())
     .filter(Boolean),
   logLevel: process.env.LOG_LEVEL ?? "info",
+  // Oddiy foydalanuvchiga ko'rsatiladigan admin akkaunti (username, @ siz).
+  adminContact: (process.env.ADMIN_CONTACT ?? "Shokir_tursun").replace(/^@/, ""),
   amoCrm: {
     subdomain: process.env.AMOCRM_SUBDOMAIN ?? "",
     token: process.env.AMOCRM_TOKEN ?? "",

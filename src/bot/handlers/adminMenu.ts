@@ -3,6 +3,7 @@ import { BotContext } from "../context";
 import { enqueueTextMessage } from "../../services/messageQueueService";
 import { statsHandler, exportHandler, linksHandler } from "./admin";
 import { handleFunnelCommand } from "./funnel";
+import { handleDashboardCommand } from "./dashboard";
 import { startBroadcastFlow } from "../flows/broadcastFlow";
 import { startSetContentFlow } from "../flows/setContentFlow";
 import { handleManageCommand } from "../flows/manageContentFlow";
@@ -14,6 +15,7 @@ export const adminMenuLabels = {
   manage: "✏️ Tahrirlash/O‘chirish",
   links: "🔗 Havolalar",
   funnel: "📈 Voronka",
+  dashboard: "📊 Dashboard",
   export: "⬇️ CSV eksport",
 };
 
@@ -31,6 +33,7 @@ export async function showAdminMenu(ctx: BotContext): Promise<void> {
     .text(adminMenuLabels.links)
     .text(adminMenuLabels.funnel)
     .row()
+    .text(adminMenuLabels.dashboard)
     .text(adminMenuLabels.export)
     .resized();
 
@@ -69,6 +72,10 @@ export async function handleAdminMenuMessage(
   }
   if (text === adminMenuLabels.funnel) {
     await handleFunnelCommand(ctx);
+    return true;
+  }
+  if (text === adminMenuLabels.dashboard) {
+    await handleDashboardCommand(ctx);
     return true;
   }
   if (text === adminMenuLabels.export) {

@@ -1,0 +1,3 @@
+connecterbot.duckdns.org {
+	reverse_proxy bot:3000
+}

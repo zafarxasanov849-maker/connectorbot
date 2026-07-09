@@ -52,6 +52,23 @@ services:
       redis:
         condition: service_healthy
 
+  # HTTPS reverse-proxy: connecterbot.duckdns.org uchun bepul avtomatik SSL.
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    logging: *default-logging
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - bot
+
 volumes:
   mongo_data:
   redis_data:
+  caddy_data:
+  caddy_config:

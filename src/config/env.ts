@@ -19,6 +19,8 @@ export const env = {
   // "on" bo'lganda yoqiladi; standart o'chiq (hozirgi foydalanuvchilarga tegmaydi).
   clickTracking:
     (process.env.SEQUENCE_CLICK_TRACKING ?? "off").toLowerCase() === "on",
+  // Funnel dashboard (Mini App) HTTPS manzili, masalan https://connecterbot.duckdns.org
+  webappUrl: process.env.WEBAPP_URL ?? "",
   amoCrm: {
     subdomain: process.env.AMOCRM_SUBDOMAIN ?? "",
     token: process.env.AMOCRM_TOKEN ?? "",

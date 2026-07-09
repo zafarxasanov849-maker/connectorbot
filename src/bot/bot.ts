@@ -4,6 +4,7 @@ import { BotContext, SessionData } from "./context";
 import { startHandler } from "./handlers/start";
 import { statsHandler, exportHandler, linksHandler } from "./handlers/admin";
 import { handleFunnelCommand, handleFunnelCallback } from "./handlers/funnel";
+import { handleDashboardCommand } from "./handlers/dashboard";
 import {
   showAdminMenu,
   handleAdminMenuMessage,
@@ -46,6 +47,7 @@ export function createBot(): Bot<BotContext> {
   admin.command("export", exportHandler);
   admin.command("links", linksHandler);
   admin.command("funnel", handleFunnelCommand);
+  admin.command("dashboard", handleDashboardCommand);
   admin.command("manage", (ctx) => handleManageCommand(ctx));
   admin.command("broadcast", (ctx) => startBroadcastFlow(ctx));
   admin.command("setcontent", (ctx) =>

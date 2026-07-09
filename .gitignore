@@ -4,6 +4,9 @@
 /uploads
 /public/*
 
+# database backups
+/backups
+
 # config
 .editorconfig
 .env

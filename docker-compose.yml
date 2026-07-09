@@ -1,7 +1,15 @@
+# Barcha konteynerlar uchun log rotatsiyasi (disk to'lib qolmasligi uchun)
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   mongo:
     image: mongo:7
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       - mongo_data:/data/db
     healthcheck:
@@ -13,6 +21,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    logging: *default-logging
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
@@ -25,6 +34,7 @@ services:
   bot:
     build: .
     restart: unless-stopped
+    logging: *default-logging
     env_file: .env
     environment:
       # Konteyner ichida MongoDB va Redis'ga service nomlari orqali ulanamiz

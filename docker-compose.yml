@@ -52,7 +52,27 @@ services:
       redis:
         condition: service_healthy
 
-  # HTTPS reverse-proxy: connecterbot.duckdns.org uchun bepul avtomatik SSL.
+  # 2-bot (tikuvchilik) — bir xil kod, alohida baza/navbat/dashboard.
+  bot-tikuv:
+    build: .
+    restart: unless-stopped
+    logging: *default-logging
+    env_file: .env.tikuv
+    environment:
+      # Alohida ma'lumotlar bazasi va navbat prefiksi — ma'lumot aralashmaydi.
+      MONGO_URI: mongodb://mongo:27017/connector-bot-tikuv
+      REDIS_URL: redis://redis:6379
+      QUEUE_PREFIX: tikuv
+      WEB_PORT: 3001
+    ports:
+      - "127.0.0.1:3001:3001"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # HTTPS reverse-proxy: har ikki subdomen uchun bepul avtomatik SSL.
   caddy:
     image: caddy:2
     restart: unless-stopped
@@ -66,6 +86,7 @@ services:
       - caddy_config:/config
     depends_on:
       - bot
+      - bot-tikuv
 
 volumes:
   mongo_data:

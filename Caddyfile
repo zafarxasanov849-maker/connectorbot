@@ -1,3 +1,7 @@
 connecterbot.duckdns.org {
 	reverse_proxy bot:3000
 }
+
+naduakademy.duckdns.org {
+	reverse_proxy bot-tikuv:3001
+}

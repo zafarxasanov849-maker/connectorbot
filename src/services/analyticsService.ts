@@ -2,7 +2,7 @@ import {
   SequenceEventModel,
   SequenceEventType,
 } from "../models/SequenceEvent";
-import { getPackageWithMessages } from "./contentService";
+import { getPackageWithMessages, listContentTags } from "./contentService";
 
 // Funnel hodisasini yozadi. Analitika xatosi asosiy oqimga ta'sir qilmasligi kerak.
 export async function recordSequenceEvent(params: {
@@ -108,16 +108,20 @@ export interface TrendReport {
 }
 
 // Kunlik trend: oxirgi N kunda har kuni nechta yangi foydalanuvchi va klik.
+// sourceTag berilmasa — barcha taglar bo'yicha umumiy.
 export async function getTrend(
-  sourceTag: string,
+  sourceTag?: string,
   days = 14
 ): Promise<TrendReport> {
   const dayMs = 24 * 60 * 60 * 1000;
   const since = new Date(Date.now() - (days - 1) * dayMs);
   since.setUTCHours(0, 0, 0, 0);
 
+  const match: Record<string, unknown> = { created_at: { $gte: since } };
+  if (sourceTag) match.source_tag = sourceTag;
+
   const agg = await SequenceEventModel.aggregate([
-    { $match: { source_tag: sourceTag, created_at: { $gte: since } } },
+    { $match: match },
     {
       $group: {
         _id: {
@@ -144,5 +148,47 @@ export async function getTrend(
     const e = map.get(key) ?? { started: 0, clicked: 0 };
     out.push({ date: key, started: e.started, clicked: e.clicked });
   }
-  return { sourceTag, days: out };
+  return { sourceTag: sourceTag ?? "*", days: out };
+}
+
+export interface OverviewRow {
+  tag: string;
+  started: number;
+  clicks: number;
+  conversion: number;
+}
+
+export interface OverviewReport {
+  totalUsers: number;
+  totalClicks: number;
+  tagCount: number;
+  rows: OverviewRow[];
+  trend: TrendDay[];
+}
+
+// Barcha taglar bo'yicha umumiy ko'rinish: KPI'lar, jadval va 30 kunlik trend.
+export async function getOverview(): Promise<OverviewReport> {
+  const tags = await listContentTags();
+
+  const rows = await Promise.all(
+    tags.map(async (tag) => {
+      const f = await getFunnel(tag);
+      const clicks = f.steps.reduce((s, st) => s + st.clicked, 0);
+      const conversion = f.steps.length
+        ? f.steps[f.steps.length - 1].reachPct
+        : 0;
+      return { tag, started: f.started, clicks, conversion };
+    })
+  );
+  rows.sort((a, b) => b.started - a.started);
+
+  const totalUsersAgg = await SequenceEventModel.aggregate([
+    { $group: { _id: null, users: { $addToSet: "$telegram_id" } } },
+    { $project: { _id: 0, count: { $size: "$users" } } },
+  ]);
+  const totalUsers = totalUsersAgg[0]?.count ?? 0;
+  const totalClicks = rows.reduce((s, r) => s + r.clicks, 0);
+  const trend = (await getTrend(undefined, 30)).days;
+
+  return { totalUsers, totalClicks, tagCount: tags.length, rows, trend };
 }

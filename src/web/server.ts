@@ -4,7 +4,12 @@ import { env } from "../config/env";
 import { validateInitData } from "./auth";
 import { isAdmin } from "../services/adminService";
 import { listContentTags, getPackageWithMessages } from "../services/contentService";
-import { getFunnel, getTrend, recordSequenceEvent } from "../services/analyticsService";
+import {
+  getFunnel,
+  getTrend,
+  getOverview,
+  recordSequenceEvent,
+} from "../services/analyticsService";
 import { verifyClickToken } from "../utils/clickToken";
 import { logger } from "../utils/logger";
 
@@ -38,12 +43,21 @@ export function startWebServer(): void {
     res.redirect(302, url);
   });
 
-  // Faqat admin Mini App'dan kirganlar API'ga ruxsat oladi.
+  // Ruxsat: Telegram Mini App (admin) YOKI to'g'ri brauzer-kaliti.
   const auth = async (
     req: Request,
     res: Response,
     next: NextFunction
   ): Promise<void> => {
+    const key =
+      (req.query.key as string | undefined) ??
+      req.header("X-Dashboard-Key") ??
+      "";
+    if (env.dashboardKey && key === env.dashboardKey) {
+      next();
+      return;
+    }
+
     const initData = req.header("X-Telegram-Init-Data") ?? "";
     const { ok, userId } = validateInitData(initData, env.botToken);
     if (!ok || !userId) {
@@ -59,6 +73,10 @@ export function startWebServer(): void {
 
   app.get("/api/tags", auth, async (_req: Request, res: Response) => {
     res.json({ tags: await listContentTags() });
+  });
+
+  app.get("/api/overview", auth, async (_req: Request, res: Response) => {
+    res.json(await getOverview());
   });
 
   app.get("/api/funnel/:tag", auth, async (req: Request, res: Response) => {

@@ -3,73 +3,85 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Voronka analitikasi</title>
+  <title>Analitika · ConnectorBot</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root {
-      --bg: var(--tg-theme-bg-color, #17212b);
-      --card: var(--tg-theme-secondary-bg-color, #232e3c);
-      --text: var(--tg-theme-text-color, #ffffff);
-      --hint: var(--tg-theme-hint-color, #7d8b99);
-      --accent: var(--tg-theme-button-color, #3390ec);
+      --bg: var(--tg-theme-bg-color, #ffffff);
+      --card: var(--tg-theme-secondary-bg-color, #f5f7fa);
+      --text: var(--tg-theme-text-color, #1f2933);
+      --hint: var(--tg-theme-hint-color, #8a94a6);
+      --accent: var(--tg-theme-button-color, #22c55e);
       --accent-text: var(--tg-theme-button-text-color, #ffffff);
+      --border: rgba(140,148,166,.18);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg); color: var(--text);
-      padding: 16px; -webkit-font-smoothing: antialiased;
+      -webkit-font-smoothing: antialiased; line-height: 1.4;
     }
-    h1 { font-size: 20px; margin-bottom: 4px; }
-    .sub { color: var(--hint); font-size: 13px; margin-bottom: 16px; }
-    .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
-    .tag {
-      padding: 8px 14px; border-radius: 20px; background: var(--card);
-      color: var(--text); font-size: 14px; cursor: pointer; border: 1px solid transparent;
-      transition: all .15s;
-    }
-    .tag.active { background: var(--accent); color: var(--accent-text); }
-    .stats { display: flex; gap: 10px; margin-bottom: 20px; }
-    .stat {
-      flex: 1; background: var(--card); border-radius: 14px; padding: 14px;
-      text-align: center;
-    }
-    .stat .num { font-size: 26px; font-weight: 700; }
-    .stat .lbl { font-size: 12px; color: var(--hint); margin-top: 2px; }
-    .step { background: var(--card); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
-    .step-head { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 20px 16px 48px; }
+    h1 { font-size: 22px; font-weight: 700; }
+    .sub { color: var(--hint); font-size: 13px; margin-top: 2px; margin-bottom: 20px; }
+
+    /* KPI cards */
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 22px; }
+    .kpi { background: var(--card); border-radius: 16px; padding: 16px 18px; }
+    .kpi .num { font-size: 28px; font-weight: 700; letter-spacing: -.5px; }
+    .kpi .lbl { font-size: 12px; color: var(--hint); margin-top: 4px; }
+
+    .panel { background: var(--card); border-radius: 16px; padding: 18px; margin-bottom: 22px; }
+    .panel-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .panel-sub { font-size: 12px; color: var(--hint); margin-bottom: 14px; }
+
+    /* table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { text-align: left; color: var(--hint); font-weight: 500; font-size: 12px; padding: 8px 12px; white-space: nowrap; }
+    td { padding: 12px; border-top: 1px solid var(--border); white-space: nowrap; }
+    tr.row { cursor: pointer; transition: background .12s; }
+    tr.row:hover td { background: rgba(140,148,166,.08); }
+    .tag-name { font-weight: 600; }
+    .pill { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; background: var(--accent); color: var(--accent-text); }
+    .muted { color: var(--hint); }
+
+    /* funnel */
+    .step { margin-bottom: 14px; }
+    .step-head { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 7px; }
     .step-head .cnt { color: var(--hint); }
-    .track { height: 10px; background: rgba(125,139,153,.25); border-radius: 6px; overflow: hidden; }
-    .fill { height: 100%; background: var(--accent); border-radius: 6px; transition: width .5s ease; }
-    .click { font-size: 12px; color: #66bb6a; margin-top: 6px; }
+    .track { height: 12px; background: rgba(140,148,166,.2); border-radius: 7px; overflow: hidden; }
+    .fill { height: 100%; background: var(--accent); border-radius: 7px; transition: width .5s; }
+    .click { font-size: 12px; color: var(--accent); margin-top: 6px; }
     .wait { font-size: 12px; color: var(--hint); margin-top: 6px; }
-    .drop { font-size: 12px; color: #e57373; margin-top: 6px; }
-    .section-title { font-size: 14px; font-weight: 600; margin: 22px 0 10px; }
-    .chart { background: var(--card); border-radius: 12px; padding: 12px; }
-    .chart svg { height: 110px; display: block; }
-    .chart-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--hint); margin-top: 6px; }
-    .empty, .error { text-align: center; color: var(--hint); padding: 40px 0; font-size: 14px; }
-    .loader { text-align: center; padding: 40px 0; color: var(--hint); }
+
+    .back { display: inline-flex; align-items: center; gap: 6px; background: var(--card); border: none; color: var(--text); font-size: 14px; padding: 9px 14px; border-radius: 12px; cursor: pointer; margin-bottom: 16px; }
+    .chart-x { display: flex; justify-content: space-between; font-size: 11px; color: var(--hint); margin-top: 8px; }
+    .empty, .error { text-align: center; color: var(--hint); padding: 48px 16px; font-size: 14px; }
+    .loader { text-align: center; color: var(--hint); padding: 48px 0; }
+    svg { display: block; width: 100%; }
   </style>
 </head>
 <body>
-  <h1>📊 Voronka analitikasi</h1>
-  <div class="sub" id="subtitle">Tagni tanlang</div>
-  <div class="tags" id="tags"></div>
-  <div id="content"><div class="loader">Yuklanmoqda…</div></div>
+  <div class="wrap">
+    <h1>📊 Analitika</h1>
+    <div class="sub" id="subtitle">Umumiy ko'rinish</div>
+    <div id="app"><div class="loader">Yuklanmoqda…</div></div>
+  </div>
 
   <script>
     const tg = window.Telegram?.WebApp;
-    tg?.ready();
-    tg?.expand();
+    tg?.ready(); tg?.expand();
 
+    const headers = {};
     const initData = tg?.initData || "";
-    const headers = { "X-Telegram-Init-Data": initData };
+    if (initData) headers["X-Telegram-Init-Data"] = initData;
+    const urlKey = new URLSearchParams(location.search).get("key") || "";
+    if (urlKey) headers["X-Dashboard-Key"] = urlKey;
 
-    const tagsEl = document.getElementById("tags");
-    const contentEl = document.getElementById("content");
+    const app = document.getElementById("app");
     const subEl = document.getElementById("subtitle");
-    let activeTag = null;
+    let overviewCache = null;
 
     async function api(path) {
       const res = await fetch(path, { headers });
@@ -77,101 +89,163 @@
       return res.json();
     }
 
-    function pct(count, base) {
-      if (!base) return 0;
-      return Math.round((count / base) * 100);
-    }
+    const nf = (n) => (n ?? 0).toLocaleString("ru-RU").replace(/,/g, " ");
 
-    function renderFunnel(data) {
-      const steps = data.steps || [];
-      const conv = steps.length ? steps[steps.length - 1].reachPct : 0;
-
-      let html = `
-        <div class="stats">
-          <div class="stat"><div class="num">${data.started}</div><div class="lbl">Boshlaganlar</div></div>
-          <div class="stat"><div class="num">${conv}%</div><div class="lbl">Konversiya</div></div>
-        </div>`;
-
-      if (!steps.length) {
-        html += `<div class="empty">Bu tag uchun hali xabar yo'q.</div>`;
-        return html;
+    // ---- smooth area chart ----
+    function smoothPath(pts) {
+      if (pts.length < 2) return pts.length ? `M ${pts[0].x},${pts[0].y}` : "";
+      let d = `M ${pts[0].x},${pts[0].y}`;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+        const c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+        const c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+        d += ` C ${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
       }
-
-      steps.forEach((s, i) => {
-        html += `
-          <div class="step">
-            <div class="step-head"><span>#${i + 1}-xabar</span><span class="cnt">${s.delivered}/${s.matured} · ${s.reachPct}%</span></div>
-            <div class="track"><div class="fill" style="width:${s.reachPct}%"></div></div>
-            ${s.clicked > 0 ? `<div class="click">👆 Bosgan: ${s.clicked} kishi · CTR ${s.ctr}%</div>` : ``}
-            ${s.waiting > 0 ? `<div class="wait">⏳ Kutmoqda: ${s.waiting} kishi</div>` : ``}
-          </div>`;
-      });
-      return html;
+      return d;
     }
 
-    function renderTrend(data) {
-      const days = data.days || [];
+    function areaChart(days, key) {
+      const vals = days.map(d => d[key]);
+      const W = 720, H = 240, pl = 44, pr = 14, pt = 16, pb = 26;
+      const max = Math.max(1, ...vals);
+      const stepX = (W - pl - pr) / Math.max(1, days.length - 1);
+      const pts = vals.map((v, i) => ({ x: pl + i * stepX, y: pt + (1 - v / max) * (H - pt - pb) }));
+      const line = smoothPath(pts);
+      const area = line + ` L ${pts[pts.length - 1].x.toFixed(1)},${H - pb} L ${pts[0].x.toFixed(1)},${H - pb} Z`;
+      // gridlines + y labels
+      let grid = "";
+      for (let g = 0; g <= 3; g++) {
+        const y = pt + (g / 3) * (H - pt - pb);
+        const val = Math.round(max * (1 - g / 3));
+        grid += `<line x1="${pl}" y1="${y}" x2="${W - pr}" y2="${y}" stroke="var(--border)" stroke-dasharray="3 4"/>`;
+        grid += `<text x="${pl - 6}" y="${y + 3}" text-anchor="end" font-size="10" fill="var(--hint)">${nf(val)}</text>`;
+      }
+      return `
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:240px">
+          <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="var(--accent)" stop-opacity="0.28"/>
+            <stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
+          </linearGradient></defs>
+          ${grid}
+          <path d="${area}" fill="url(#ag)"/>
+          <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>`;
+    }
+
+    function xLabels(days) {
       if (!days.length) return "";
+      const idx = [0, Math.floor(days.length / 3), Math.floor(2 * days.length / 3), days.length - 1];
+      const uniq = [...new Set(idx)];
+      return `<div class="chart-x">${uniq.map(i => `<span>${days[i].date.slice(5)}</span>`).join("")}</div>`;
+    }
+
+    function barChart(days) {
       const max = Math.max(1, ...days.map(d => d.started));
-      const W = 320, H = 110, pad = 16;
-      const bw = (W - pad * 2) / days.length;
+      const W = 720, H = 150, pt = 10, pb = 10;
+      const bw = (W) / days.length;
       let bars = "";
       days.forEach((d, i) => {
-        const h = (d.started / max) * (H - pad * 2);
-        const x = pad + i * bw;
-        const y = H - pad - h;
-        bars += `<rect x="${x + 1}" y="${y}" width="${Math.max(1, bw - 2)}" height="${h}" rx="2" fill="var(--accent)"></rect>`;
+        const h = (d.started / max) * (H - pt - pb);
+        bars += `<rect x="${(i * bw + 1).toFixed(1)}" y="${(H - pb - h).toFixed(1)}" width="${Math.max(1, bw - 2).toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="var(--accent)"/>`;
         if (d.clicked > 0) {
-          const ch = (d.clicked / max) * (H - pad * 2);
-          bars += `<rect x="${x + 1}" y="${H - pad - ch}" width="${Math.max(1, bw - 2)}" height="${ch}" rx="2" fill="#66bb6a"></rect>`;
+          const ch = (d.clicked / max) * (H - pt - pb);
+          bars += `<rect x="${(i * bw + 1).toFixed(1)}" y="${(H - pb - ch).toFixed(1)}" width="${Math.max(1, bw - 2).toFixed(1)}" height="${ch.toFixed(1)}" rx="2" fill="#f59e0b"/>`;
         }
       });
-      const total = days.reduce((s, d) => s + d.started, 0);
-      return `
-        <div class="section-title">📈 Kunlik yangi foydalanuvchilar · ${days.length} kun (jami ${total})</div>
-        <div class="chart">
-          <svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="none">${bars}</svg>
-          <div class="chart-labels"><span>${days[0].date.slice(5)}</span><span>👆 klik</span><span>${days[days.length - 1].date.slice(5)}</span></div>
-        </div>`;
+      return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:150px">${bars}</svg>`;
     }
 
-    async function loadFunnel(tag) {
-      activeTag = tag;
+    // ---- views ----
+    function renderOverview(d) {
+      subEl.textContent = "Umumiy ko'rinish";
+      let html = `
+        <div class="kpis">
+          <div class="kpi"><div class="num">${nf(d.totalUsers)}</div><div class="lbl">Jami foydalanuvchilar</div></div>
+          <div class="kpi"><div class="num">${nf(d.totalClicks)}</div><div class="lbl">Jami kliklar</div></div>
+          <div class="kpi"><div class="num">${nf(d.tagCount)}</div><div class="lbl">Faol havolalar</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">📈 Kunlik yangi foydalanuvchilar</div>
+          <div class="panel-sub">Oxirgi 30 kun · barcha havolalar</div>
+          ${areaChart(d.trend, "started")}
+          ${xLabels(d.trend)}
+        </div>
+        <div class="panel">
+          <div class="panel-title">🔗 Havolalar</div>
+          <div class="panel-sub">Batafsil ko'rish uchun qatorni bosing</div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Havola nomi</th><th>Foydalanuvchilar</th><th>Konversiya</th><th>Kliklar</th></tr></thead>
+            <tbody>`;
+      if (!d.rows.length) {
+        html += `<tr><td colspan="4" class="muted">Hali havola yo'q. Botda /setcontent orqali yarating.</td></tr>`;
+      } else {
+        d.rows.forEach(r => {
+          html += `<tr class="row" data-tag="${r.tag}">
+            <td class="tag-name">${r.tag}</td>
+            <td>${nf(r.started)}</td>
+            <td><span class="pill">${r.conversion}%</span></td>
+            <td>${nf(r.clicks)}</td>
+          </tr>`;
+        });
+      }
+      html += `</tbody></table></div></div>`;
+      app.innerHTML = html;
+      app.querySelectorAll("tr.row").forEach(tr =>
+        tr.onclick = () => showTag(tr.dataset.tag));
+    }
+
+    function renderTag(tag, funnel, trend) {
       subEl.textContent = `"${tag}" tahlili`;
-      [...tagsEl.children].forEach(c => c.classList.toggle("active", c.dataset.tag === tag));
-      contentEl.innerHTML = `<div class="loader">Yuklanmoqda…</div>`;
+      const conv = funnel.steps.length ? funnel.steps[funnel.steps.length - 1].reachPct : 0;
+      let html = `<button class="back" onclick="showOverview()">← Orqaga</button>
+        <div class="kpis">
+          <div class="kpi"><div class="num">${nf(funnel.started)}</div><div class="lbl">Boshlaganlar</div></div>
+          <div class="kpi"><div class="num">${conv}%</div><div class="lbl">Konversiya</div></div>
+        </div>
+        <div class="panel"><div class="panel-title">📊 Voronka</div><div class="panel-sub">Har xabar: yetgan / ulgurgan</div>`;
+      if (!funnel.steps.length) {
+        html += `<div class="muted">Bu tag uchun hali xabar yo'q.</div>`;
+      } else {
+        funnel.steps.forEach((s, i) => {
+          html += `<div class="step">
+            <div class="step-head"><span>#${i + 1}-xabar</span><span class="cnt">${s.delivered}/${s.matured} · ${s.reachPct}%</span></div>
+            <div class="track"><div class="fill" style="width:${s.reachPct}%"></div></div>
+            ${s.clicked > 0 ? `<div class="click">👆 Bosgan: ${s.clicked} · CTR ${s.ctr}%</div>` : ``}
+            ${s.waiting > 0 ? `<div class="wait">⏳ Kutmoqda: ${s.waiting}</div>` : ``}
+          </div>`;
+        });
+      }
+      html += `</div>
+        <div class="panel"><div class="panel-title">📉 Kunlik trend (14 kun)</div>
+        <div class="panel-sub">Ko'k: yangi foydalanuvchi · Sariq: klik</div>
+        ${barChart(trend.days)}${xLabels(trend.days)}</div>`;
+      app.innerHTML = html;
+    }
+
+    async function showTag(tag) {
+      app.innerHTML = `<div class="loader">Yuklanmoqda…</div>`;
       try {
         const [funnel, trend] = await Promise.all([
           api(`/api/funnel/${encodeURIComponent(tag)}`),
           api(`/api/trend/${encodeURIComponent(tag)}`),
         ]);
-        contentEl.innerHTML = renderFunnel(funnel) + renderTrend(trend);
-      } catch (e) {
-        contentEl.innerHTML = `<div class="error">Xatolik: ${e.message}</div>`;
-      }
+        renderTag(tag, funnel, trend);
+        window.scrollTo(0, 0);
+      } catch (e) { app.innerHTML = `<div class="error">Xatolik: ${e.message}</div>`; }
+    }
+
+    function showOverview() {
+      if (overviewCache) { renderOverview(overviewCache); window.scrollTo(0, 0); }
+      else init();
     }
 
     async function init() {
       try {
-        const { tags } = await api("/api/tags");
-        if (!tags.length) {
-          tagsEl.innerHTML = "";
-          contentEl.innerHTML = `<div class="empty">Hali hech qanday tag yo'q.<br>Botda /setcontent orqali kontent yarating.</div>`;
-          subEl.textContent = "";
-          return;
-        }
-        tagsEl.innerHTML = "";
-        tags.forEach(t => {
-          const el = document.createElement("div");
-          el.className = "tag";
-          el.textContent = t;
-          el.dataset.tag = t;
-          el.onclick = () => loadFunnel(t);
-          tagsEl.appendChild(el);
-        });
-        loadFunnel(tags[0]);
+        overviewCache = await api("/api/overview");
+        renderOverview(overviewCache);
       } catch (e) {
-        contentEl.innerHTML = `<div class="error">Kirish rad etildi yoki xatolik: ${e.message}<br><br>Bu panelni bot ichidagi tugma orqali oching.</div>`;
+        app.innerHTML = `<div class="error">Kirish rad etildi yoki xatolik (${e.message}).<br><br>Bu panelni bot ichidagi 📊 Dashboard tugmasi orqali oching,<br>yoki brauzerda ?key=... bilan kiring.</div>`;
+        subEl.textContent = "";
       }
     }
 

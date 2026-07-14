@@ -178,7 +178,6 @@ export async function handleBroadcastCallback(
         "Tugma formati: Sarlavha - https://link",
         "Dumaloq video uchun avval matnda MEDIA: video_note yozing, keyin videoni yuboring.",
       ].join("\n"),
-      parseMode: "Markdown",
     });
     return true;
   }

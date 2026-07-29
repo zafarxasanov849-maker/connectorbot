@@ -1,4 +1,5 @@
 import { Queue } from "bullmq";
+import { Api } from "grammy";
 import { BroadcastJobData } from "../types/broadcast";
 import { UserModel } from "../models/User";
 import { IMediaFile, IContentButton } from "../models/ContentPackage";
@@ -62,11 +63,41 @@ export async function createBroadcast(params: {
 export async function markBroadcastResult(
   broadcastId: string,
   ok: boolean
-): Promise<void> {
-  await BroadcastModel.updateOne(
+): Promise<IBroadcast | null> {
+  return BroadcastModel.findOneAndUpdate(
     { _id: broadcastId },
-    { $inc: ok ? { delivered: 1 } : { failed: 1 } }
-  );
+    { $inc: ok ? { delivered: 1 } : { failed: 1 } },
+    { new: true }
+  ).lean();
+}
+
+// Reklama tugagan bo'lsa (delivered+failed === total), adminga bir marta
+// yakuniy hisobot yuboradi.
+export async function maybeSendBroadcastReport(
+  api: Api,
+  doc: IBroadcast | null
+): Promise<void> {
+  if (!doc || doc.reported) return;
+  if (doc.delivered + doc.failed < doc.total) return;
+
+  // Atomik: faqat bir marta "reported" belgilaymiz (dublikat hisobot bo'lmasin).
+  const claimed = await BroadcastModel.findOneAndUpdate(
+    { _id: doc._id, reported: { $ne: true } },
+    { $set: { reported: true } },
+    { new: true }
+  ).lean();
+  if (!claimed) return;
+
+  const clicks = claimed.clickers?.length ?? 0;
+  const target =
+    claimed.target === "all" ? "Hammasi" : claimed.target.replace("source:", "");
+  const text =
+    `📣 Reklama yakunlandi — ${target}\n\n` +
+    `✅ Yetkazildi: ${claimed.delivered}/${claimed.total}\n` +
+    `❌ Yetmadi: ${claimed.failed}\n` +
+    `👆 Bosilgan: ${clicks}\n\n` +
+    `Kliklar vaqt o'tishi bilan ko'payadi — /broadcasts da kuzatib boring.`;
+  await api.sendMessage(claimed.admin_id, text).catch(() => {});
 }
 
 export async function addBroadcastClicker(

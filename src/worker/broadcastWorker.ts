@@ -5,7 +5,10 @@ import { BroadcastJobData } from "../types/broadcast";
 import { env, validateEnv } from "../config/env";
 import { redisConfig } from "../config/redis";
 import { deliverContent } from "../services/deliveryService";
-import { markBroadcastResult } from "../services/broadcastService";
+import {
+  markBroadcastResult,
+  maybeSendBroadcastReport,
+} from "../services/broadcastService";
 import { handleDeliveryError } from "../utils/deliveryError";
 import { logger } from "../utils/logger";
 import { resolveQueueName } from "../queue/names";
@@ -23,10 +26,16 @@ async function processJob(job: Job<BroadcastJobData>): Promise<void> {
       : undefined;
   try {
     await deliverContent({ api, chatId, text, media, buttons, tracking });
-    if (broadcastId) await markBroadcastResult(broadcastId, true);
+    if (broadcastId) {
+      const doc = await markBroadcastResult(broadcastId, true);
+      await maybeSendBroadcastReport(api, doc);
+    }
   } catch (error) {
     await handleDeliveryError(chatId, error);
-    if (broadcastId) await markBroadcastResult(broadcastId, false);
+    if (broadcastId) {
+      const doc = await markBroadcastResult(broadcastId, false);
+      await maybeSendBroadcastReport(api, doc);
+    }
   }
 }
 

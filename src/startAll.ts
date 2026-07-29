@@ -8,7 +8,10 @@ import { redisConfig } from "./config/redis";
 import { Worker, Job } from "bullmq";
 import { BroadcastJobData } from "./types/broadcast";
 import { deliverContent } from "./services/deliveryService";
-import { markBroadcastResult } from "./services/broadcastService";
+import {
+  markBroadcastResult,
+  maybeSendBroadcastReport,
+} from "./services/broadcastService";
 import { handleDeliveryError } from "./utils/deliveryError";
 import { recordSequenceEvent } from "./services/analyticsService";
 import { SequenceJobData } from "./types/sequence";
@@ -67,10 +70,16 @@ function startBroadcastWorker(): Worker<BroadcastJobData> {
         : undefined;
     try {
       await deliverContent({ api, chatId, text, media, buttons, tracking });
-      if (broadcastId) await markBroadcastResult(broadcastId, true);
+      if (broadcastId) {
+        const doc = await markBroadcastResult(broadcastId, true);
+        await maybeSendBroadcastReport(api, doc);
+      }
     } catch (error) {
       await handleDeliveryError(chatId, error);
-      if (broadcastId) await markBroadcastResult(broadcastId, false);
+      if (broadcastId) {
+        const doc = await markBroadcastResult(broadcastId, false);
+        await maybeSendBroadcastReport(api, doc);
+      }
     }
   };
 

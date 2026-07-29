@@ -247,7 +247,7 @@ export async function handleBroadcastCallback(
 
     await ctx.editMessageText(
       `${recipients.length} ta foydalanuvchiga yuborish boshlandi.\n` +
-        `Natijani /broadcasts da ko‘ring (yetkazildi, xato, bosilgan).`
+        `Tugagach yakuniy hisobot avtomatik keladi. Istalgan vaqt: /broadcasts`
     );
     ctx.session.broadcastFlow = undefined;
     return true;

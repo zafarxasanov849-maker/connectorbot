@@ -10,6 +10,7 @@ export interface IBroadcast extends Document {
   delivered: number;
   failed: number;
   clickers: number[]; // tugma bosgan unikal telegram_id'lar
+  reported: boolean; // yakuniy hisobot adminga yuborilganmi
   created_at: Date;
 }
 
@@ -25,6 +26,7 @@ const BroadcastSchema = new Schema<IBroadcast>({
   delivered: { type: Number, default: 0 },
   failed: { type: Number, default: 0 },
   clickers: { type: [Number], default: [] },
+  reported: { type: Boolean, default: false },
   created_at: { type: Date, default: Date.now },
 });
 

@@ -8,6 +8,7 @@ import { redisConfig } from "./config/redis";
 import { Worker, Job } from "bullmq";
 import { BroadcastJobData } from "./types/broadcast";
 import { deliverContent } from "./services/deliveryService";
+import { markBroadcastResult } from "./services/broadcastService";
 import { handleDeliveryError } from "./utils/deliveryError";
 import { recordSequenceEvent } from "./services/analyticsService";
 import { SequenceJobData } from "./types/sequence";
@@ -59,11 +60,17 @@ function startBroadcastWorker(): Worker<BroadcastJobData> {
   const connection = new Redis(env.redisUrl, redisConfig);
 
   const processJob = async (job: Job<BroadcastJobData>): Promise<void> => {
-    const { chatId, text, media, buttons } = job.data;
+    const { chatId, text, media, buttons, broadcastId } = job.data;
+    const tracking =
+      env.webappUrl && broadcastId
+        ? { kind: "broadcast" as const, broadcastId }
+        : undefined;
     try {
-      await deliverContent({ api, chatId, text, media, buttons });
+      await deliverContent({ api, chatId, text, media, buttons, tracking });
+      if (broadcastId) await markBroadcastResult(broadcastId, true);
     } catch (error) {
       await handleDeliveryError(chatId, error);
+      if (broadcastId) await markBroadcastResult(broadcastId, false);
     }
   };
 
@@ -86,7 +93,7 @@ function startSequenceWorker(): Worker<SequenceJobData> {
     const { chatId, text, media, buttons, sourceTag, order } = job.data;
     const tracking =
       env.clickTracking && sourceTag
-        ? { sourceTag, order: order ?? 0 }
+        ? { kind: "sequence" as const, sourceTag, order: order ?? 0 }
         : undefined;
     try {
       await deliverContent({ api, chatId, text, media, buttons, tracking });

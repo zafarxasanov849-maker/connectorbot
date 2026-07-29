@@ -10,6 +10,10 @@ import {
   getOverview,
   recordSequenceEvent,
 } from "../services/analyticsService";
+import {
+  getBroadcastButtonUrl,
+  addBroadcastClicker,
+} from "../services/broadcastService";
 import { verifyClickToken } from "../utils/clickToken";
 import { logger } from "../utils/logger";
 
@@ -20,26 +24,36 @@ export function startWebServer(): void {
   app.use(express.json());
 
   // Klik-yo'naltirish (ochiq): bosishni yozib, haqiqiy havolaga 302 qiladi.
+  // Ikki tur: broadcast (k="b") va sequence (aks holda).
   app.get("/r/:token", async (req: Request, res: Response) => {
-    const payload = verifyClickToken(req.params.token);
-    if (!payload) {
+    const p = verifyClickToken(req.params.token);
+    if (!p) {
       res.status(400).send("Invalid link");
       return;
     }
-    const pkg = await getPackageWithMessages(payload.t);
-    const url = pkg?.messages?.[payload.o]?.buttons?.[payload.b]?.url;
+
+    let url: string | null | undefined;
+    if (p.k === "b") {
+      url = await getBroadcastButtonUrl(p.id, p.b);
+      if (url) void addBroadcastClicker(p.id, p.u);
+    } else {
+      const pkg = await getPackageWithMessages(p.t);
+      url = pkg?.messages?.[p.o]?.buttons?.[p.b]?.url;
+      if (url) {
+        void recordSequenceEvent({
+          sourceTag: p.t,
+          telegramId: p.u,
+          type: "clicked",
+          order: p.o,
+          buttonIndex: p.b,
+        });
+      }
+    }
+
     if (!url) {
       res.status(404).send("Link not found");
       return;
     }
-    // Fire-and-forget: yozish javobni sekinlashtirmasin.
-    void recordSequenceEvent({
-      sourceTag: payload.t,
-      telegramId: payload.u,
-      type: "clicked",
-      order: payload.o,
-      buttonIndex: payload.b,
-    });
     res.redirect(302, url);
   });
 

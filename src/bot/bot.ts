@@ -7,6 +7,7 @@ import { handleFunnelCommand, handleFunnelCallback } from "./handlers/funnel";
 import { handleTrendCommand, handleTrendCallback } from "./handlers/trend";
 import { handleDashboardCommand } from "./handlers/dashboard";
 import { handleCloneCommand } from "./handlers/clone";
+import { handleBroadcastsCommand } from "./handlers/broadcasts";
 import {
   showAdminMenu,
   handleAdminMenuMessage,
@@ -57,6 +58,7 @@ export function createBot(): Bot<BotContext> {
     startSetContentFlow(ctx, ctx.match?.trim() || undefined)
   );
   admin.command("clone", handleCloneCommand);
+  admin.command("broadcasts", handleBroadcastsCommand);
 
   admin.on("message", async (ctx) => {
     const handled =

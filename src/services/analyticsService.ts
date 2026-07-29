@@ -3,6 +3,7 @@ import {
   SequenceEventType,
 } from "../models/SequenceEvent";
 import { getPackageWithMessages, listContentTags } from "./contentService";
+import { getRecentBroadcasts } from "./broadcastService";
 
 // Funnel hodisasini yozadi. Analitika xatosi asosiy oqimga ta'sir qilmasligi kerak.
 export async function recordSequenceEvent(params: {
@@ -158,12 +159,22 @@ export interface OverviewRow {
   conversion: number;
 }
 
+export interface OverviewBroadcast {
+  date: string;
+  target: string;
+  delivered: number;
+  total: number;
+  failed: number;
+  clicks: number;
+}
+
 export interface OverviewReport {
   totalUsers: number;
   totalClicks: number;
   tagCount: number;
   rows: OverviewRow[];
   trend: TrendDay[];
+  broadcasts: OverviewBroadcast[];
 }
 
 // Barcha taglar bo'yicha umumiy ko'rinish: KPI'lar, jadval va 30 kunlik trend.
@@ -190,5 +201,22 @@ export async function getOverview(): Promise<OverviewReport> {
   const totalClicks = rows.reduce((s, r) => s + r.clicks, 0);
   const trend = (await getTrend(undefined, 30)).days;
 
-  return { totalUsers, totalClicks, tagCount: tags.length, rows, trend };
+  const bc = await getRecentBroadcasts(8);
+  const broadcasts: OverviewBroadcast[] = bc.map((b) => ({
+    date: new Date(b.created_at).toISOString().slice(5, 16).replace("T", " "),
+    target: b.target === "all" ? "Hammasi" : b.target.replace("source:", ""),
+    delivered: b.delivered,
+    total: b.total,
+    failed: b.failed,
+    clicks: b.clickers?.length ?? 0,
+  }));
+
+  return {
+    totalUsers,
+    totalClicks,
+    tagCount: tags.length,
+    rows,
+    trend,
+    broadcasts,
+  };
 }

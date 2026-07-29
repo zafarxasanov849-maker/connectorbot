@@ -189,6 +189,29 @@
         });
       }
       html += `</tbody></table></div></div>`;
+
+      // Reklamalar hisoboti
+      const bc = d.broadcasts || [];
+      if (bc.length) {
+        html += `
+          <div class="panel">
+            <div class="panel-title">📣 Reklamalar</div>
+            <div class="panel-sub">Oxirgi yuborilgan reklamalar natijasi</div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Sana</th><th>Kimga</th><th>Yetkazildi</th><th>Xato</th><th>Bosdi</th></tr></thead>
+              <tbody>`;
+        bc.forEach(b => {
+          html += `<tr>
+            <td class="muted">${b.date}</td>
+            <td>${b.target}</td>
+            <td>${b.delivered}/${b.total}</td>
+            <td>${b.failed}</td>
+            <td><span class="pill">${b.clicks}</span></td>
+          </tr>`;
+        });
+        html += `</tbody></table></div></div>`;
+      }
+
       app.innerHTML = html;
       app.querySelectorAll("tr.row").forEach(tr =>
         tr.onclick = () => showTag(tr.dataset.tag));

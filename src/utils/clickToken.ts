@@ -1,14 +1,11 @@
 import crypto from "crypto";
 import { env } from "../config/env";
 
-// Klik havolasi uchun imzolangan token: (foydalanuvchi, tag, xabar, tugma).
-// Ma'lumot tokenning o'zida (bazaga yozish shart emas), imzo soxtalashtirishni oldini oladi.
-export interface ClickPayload {
-  u: number; // telegram_id
-  t: string; // source_tag
-  o: number; // message order
-  b: number; // button index
-}
+// Klik havolasi uchun imzolangan token. Ma'lumot tokenning o'zida, imzo
+// soxtalashtirishni oldini oladi. Ikki tur: sequence (s) va broadcast (b).
+export type ClickPayload =
+  | { k?: "s"; u: number; t: string; o: number; b: number } // sequence
+  | { k: "b"; u: number; id: string; b: number }; // broadcast
 
 function sign(body: string): string {
   return crypto

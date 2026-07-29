@@ -5,6 +5,7 @@ import { BroadcastJobData } from "../types/broadcast";
 import { env, validateEnv } from "../config/env";
 import { redisConfig } from "../config/redis";
 import { deliverContent } from "../services/deliveryService";
+import { markBroadcastResult } from "../services/broadcastService";
 import { handleDeliveryError } from "../utils/deliveryError";
 import { logger } from "../utils/logger";
 import { resolveQueueName } from "../queue/names";
@@ -15,11 +16,17 @@ const api = new Api(env.botToken);
 const connection = new Redis(env.redisUrl, redisConfig);
 
 async function processJob(job: Job<BroadcastJobData>): Promise<void> {
-  const { chatId, text, media, buttons } = job.data;
+  const { chatId, text, media, buttons, broadcastId } = job.data;
+  const tracking =
+    env.webappUrl && broadcastId
+      ? { kind: "broadcast" as const, broadcastId }
+      : undefined;
   try {
-    await deliverContent({ api, chatId, text, media, buttons });
+    await deliverContent({ api, chatId, text, media, buttons, tracking });
+    if (broadcastId) await markBroadcastResult(broadcastId, true);
   } catch (error) {
     await handleDeliveryError(chatId, error);
+    if (broadcastId) await markBroadcastResult(broadcastId, false);
   }
 }
 

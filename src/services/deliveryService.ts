@@ -1,9 +1,13 @@
-import { Api, InlineKeyboard } from "grammy";
+import { Api, InlineKeyboard, InputMediaBuilder } from "grammy";
 import { IMediaFile, IContentButton } from "../models/ContentPackage";
 import { buildInlineKeyboard } from "../utils/keyboard";
 import { signClickToken } from "../utils/clickToken";
 import { env } from "../config/env";
 import { logger } from "../utils/logger";
+
+export type TrackingInfo =
+  | { kind: "sequence"; sourceTag: string; order: number }
+  | { kind: "broadcast"; broadcastId: string };
 
 // Kuzatuvli klaviatura: har tugma domen orqali `<webappUrl>/r/<token>` ga
 // yo'naltiriladi. Server bosishni yozib, foydalanuvchini haqiqiy havolaga
@@ -11,19 +15,18 @@ import { logger } from "../utils/logger";
 function buildTrackingKeyboard(
   chatId: number,
   buttons: IContentButton[],
-  tracking: { sourceTag: string; order: number }
+  tracking: TrackingInfo
 ): InlineKeyboard | undefined {
   if (!buttons.length) return undefined;
   if (!env.webappUrl) return buildInlineKeyboard(buttons);
 
   const kb = new InlineKeyboard();
   buttons.forEach((b, i) => {
-    const token = signClickToken({
-      u: chatId,
-      t: tracking.sourceTag,
-      o: tracking.order,
-      b: i,
-    });
+    const token = signClickToken(
+      tracking.kind === "sequence"
+        ? { k: "s", u: chatId, t: tracking.sourceTag, o: tracking.order, b: i }
+        : { k: "b", u: chatId, id: tracking.broadcastId, b: i }
+    );
     kb.url(b.label, `${env.webappUrl}/r/${token}`);
     kb.row();
   });
@@ -36,13 +39,36 @@ export async function deliverContent(params: {
   text?: string;
   media?: IMediaFile[];
   buttons?: IContentButton[];
-  tracking?: { sourceTag: string; order: number };
+  tracking?: TrackingInfo;
 }): Promise<void> {
   const replyMarkup: InlineKeyboard | undefined = params.tracking
     ? buildTrackingKeyboard(params.chatId, params.buttons ?? [], params.tracking)
     : buildInlineKeyboard(params.buttons ?? []);
 
   const media = params.media ?? [];
+
+  // Albom (2+ media) — sendMediaGroup. Albomga tugma qo'yib bo'lmaydi,
+  // shuning uchun tugmalar (bo'lsa) alohida xabarda yuboriladi.
+  if (media.length > 1) {
+    try {
+      const group = media.slice(0, 10).map((m, i) => {
+        const opts = i === 0 && params.text ? { caption: params.text } : {};
+        return m.type === "video"
+          ? InputMediaBuilder.video(m.file_id, opts)
+          : InputMediaBuilder.photo(m.file_id, opts);
+      });
+      await params.api.sendMediaGroup(params.chatId, group);
+      if (replyMarkup) {
+        await params.api.sendMessage(params.chatId, "👇", {
+          reply_markup: replyMarkup,
+        });
+      }
+      return;
+    } catch (error) {
+      logger.warn("Albom yuborib bo'lmadi, bitta media bilan davom etamiz", error);
+    }
+  }
+
   if (media.length) {
     const mediaItem = media[0];
 

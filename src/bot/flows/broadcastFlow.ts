@@ -6,6 +6,7 @@ import {
   getQueue,
   queueBroadcast,
   countRecipients,
+  createBroadcast,
 } from "../../services/broadcastService";
 import { logAdminAction } from "../../services/adminLogService";
 import { enqueueTextMessage } from "../../services/messageQueueService";
@@ -23,6 +24,20 @@ export async function handleBroadcastMessage(ctx: BotContext): Promise<boolean> 
   if (flow.stage === "target") {
     // In target stage we expect button selection; ignore free text to avoid errors.
     await renderTargetSelection(ctx, flow.page ?? 0, false);
+    return true;
+  }
+
+  if (flow.stage === "confirm") {
+    // Albom (media group) qolgan rasmlarini yig'amiz.
+    const gid = ctx.message?.media_group_id;
+    if (gid && gid === flow.albumGroupId) {
+      const extra = extractMedia(ctx.message);
+      if (extra.length) {
+        flow.media = [...(flow.media ?? []), ...extra];
+        ctx.session.broadcastFlow = flow;
+      }
+    }
+    // Tasdiqlashni kutamiz — boshqa xabarlarni yutamiz (menyu spam bo'lmasin).
     return true;
   }
 
@@ -105,20 +120,27 @@ export async function handleBroadcastMessage(ctx: BotContext): Promise<boolean> 
       return true;
     }
 
+    const groupId = ctx.message?.media_group_id;
     ctx.session.broadcastFlow = {
       stage: "confirm",
       target: flow.target,
       text: cleanedText,
       media,
       buttons,
+      albumGroupId: groupId,
       pendingMedia: undefined,
     };
 
+    const mediaLabel = groupId
+      ? "albom (bir nechta rasm)"
+      : media.length
+      ? media[0].type
+      : "yo‘q";
     const summary = `Oldindan ko‘rish:\nMaqsad: ${
       flow.target?.type === "all"
         ? "Barcha foydalanuvchilar"
         : `Tag: ${flow.target?.source_tag ?? ""}`
-    }\nTugmalar: ${buttons.length}\nMedia: ${media.length ? media[0].type : "yo‘q"}`;
+    }\nTugmalar: ${buttons.length}\nMedia: ${mediaLabel}`;
 
     const confirmKeyboard = new InlineKeyboard()
       .text("Tasdiqlash", "broadcast_confirm")
@@ -199,21 +221,33 @@ export async function handleBroadcastCallback(
       return true;
     }
 
-    const queue = getQueue();
-    await queueBroadcast(queue, recipients, {
-      text: flow.text,
-      media: flow.media,
-      buttons: flow.buttons,
+    const targetLabel =
+      target.type === "all" ? "all" : `source:${target.source_tag}`;
+    const broadcastId = await createBroadcast({
+      adminId: ctx.from?.id ?? 0,
+      target: targetLabel,
+      textPreview: (flow.text ?? "").slice(0, 120),
+      buttons: (flow.buttons ?? []).map((b) => ({ label: b.label, url: b.url })),
+      total: recipients.length,
     });
+
+    const queue = getQueue();
+    await queueBroadcast(
+      queue,
+      recipients,
+      { text: flow.text, media: flow.media, buttons: flow.buttons },
+      broadcastId
+    );
 
     await logAdminAction({
       adminId: ctx.from?.id ?? 0,
       action: "broadcast",
-      target: target.type === "all" ? "all" : `source:${target.source_tag}`,
+      target: targetLabel,
     });
 
     await ctx.editMessageText(
-      `${recipients.length} ta foydalanuvchiga yuborish navbatga qo‘yildi.`
+      `${recipients.length} ta foydalanuvchiga yuborish boshlandi.\n` +
+        `Natijani /broadcasts da ko‘ring (yetkazildi, xato, bosilgan).`
     );
     ctx.session.broadcastFlow = undefined;
     return true;

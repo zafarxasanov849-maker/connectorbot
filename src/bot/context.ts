@@ -19,6 +19,7 @@ export interface BroadcastFlowState {
   buttons?: IContentButton[];
   page?: number;
   pendingMedia?: PendingMediaDraft;
+  albumGroupId?: string; // albom (media group) yig'ish uchun
 }
 
 export interface SetContentFlowState {

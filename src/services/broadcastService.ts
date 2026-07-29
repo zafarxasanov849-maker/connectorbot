@@ -2,6 +2,7 @@ import { Queue } from "bullmq";
 import { BroadcastJobData } from "../types/broadcast";
 import { UserModel } from "../models/User";
 import { IMediaFile, IContentButton } from "../models/ContentPackage";
+import { BroadcastModel, IBroadcast } from "../models/Broadcast";
 import { buildBroadcastQueue } from "../queue/broadcastQueue";
 
 export type BroadcastTarget =
@@ -24,11 +25,12 @@ export async function countRecipients(target: BroadcastTarget): Promise<number> 
 export async function queueBroadcast(
   queue: Queue<BroadcastJobData>,
   chatIds: number[],
-  content: { text?: string; media?: IMediaFile[]; buttons?: IContentButton[] }
+  content: { text?: string; media?: IMediaFile[]; buttons?: IContentButton[] },
+  broadcastId?: string
 ): Promise<void> {
   const jobs = chatIds.map((chatId) => ({
     name: "broadcast",
-    data: { chatId, ...content },
+    data: { chatId, broadcastId, ...content },
     opts: {
       removeOnComplete: true,
       attempts: 3,
@@ -36,6 +38,57 @@ export async function queueBroadcast(
     },
   }));
   await queue.addBulk(jobs);
+}
+
+// --- Reklama hisoboti ---
+
+export async function createBroadcast(params: {
+  adminId: number;
+  target: string;
+  textPreview: string;
+  buttons: { label: string; url: string }[];
+  total: number;
+}): Promise<string> {
+  const doc = await BroadcastModel.create({
+    admin_id: params.adminId,
+    target: params.target,
+    text_preview: params.textPreview,
+    buttons: params.buttons,
+    total: params.total,
+  });
+  return String(doc._id);
+}
+
+export async function markBroadcastResult(
+  broadcastId: string,
+  ok: boolean
+): Promise<void> {
+  await BroadcastModel.updateOne(
+    { _id: broadcastId },
+    { $inc: ok ? { delivered: 1 } : { failed: 1 } }
+  );
+}
+
+export async function addBroadcastClicker(
+  broadcastId: string,
+  telegramId: number
+): Promise<void> {
+  await BroadcastModel.updateOne(
+    { _id: broadcastId },
+    { $addToSet: { clickers: telegramId } }
+  );
+}
+
+export async function getBroadcastButtonUrl(
+  broadcastId: string,
+  index: number
+): Promise<string | null> {
+  const b = await BroadcastModel.findById(broadcastId).lean();
+  return b?.buttons?.[index]?.url ?? null;
+}
+
+export async function getRecentBroadcasts(limit = 10): Promise<IBroadcast[]> {
+  return BroadcastModel.find().sort({ created_at: -1 }).limit(limit).lean();
 }
 
 export async function resolveRecipients(target: BroadcastTarget): Promise<number[]> {

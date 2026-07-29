@@ -5,6 +5,7 @@ import { statsHandler, exportHandler, linksHandler } from "./admin";
 import { handleFunnelCommand } from "./funnel";
 import { handleTrendCommand } from "./trend";
 import { handleDashboardCommand } from "./dashboard";
+import { handleBroadcastsCommand } from "./broadcasts";
 import { startBroadcastFlow } from "../flows/broadcastFlow";
 import { startSetContentFlow } from "../flows/setContentFlow";
 import { handleManageCommand } from "../flows/manageContentFlow";
@@ -18,6 +19,7 @@ export const adminMenuLabels = {
   funnel: "📈 Voronka",
   trend: "📉 Trend",
   dashboard: "📊 Dashboard",
+  broadcasts: "📣 Reklama hisoboti",
   export: "⬇️ CSV eksport",
 };
 
@@ -38,6 +40,7 @@ export async function showAdminMenu(ctx: BotContext): Promise<void> {
     .text(adminMenuLabels.trend)
     .text(adminMenuLabels.dashboard)
     .row()
+    .text(adminMenuLabels.broadcasts)
     .text(adminMenuLabels.export)
     .resized();
 
@@ -84,6 +87,10 @@ export async function handleAdminMenuMessage(
   }
   if (text === adminMenuLabels.dashboard) {
     await handleDashboardCommand(ctx);
+    return true;
+  }
+  if (text === adminMenuLabels.broadcasts) {
+    await handleBroadcastsCommand(ctx);
     return true;
   }
   if (text === adminMenuLabels.export) {

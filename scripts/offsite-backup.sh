@@ -1,32 +1,37 @@
 #!/usr/bin/env bash
-# Tashqi backup: MongoDB dump'ini Telegram orqali admin(lar)ga yuboradi.
-# Server o'chib ketsa ham, backup Telegram'da saqlanib qoladi — ma'lumot yo'qolmaydi.
+# Tashqi backup: har bot o'z bazasini o'z boti orqali admin(lar)ga yuboradi.
+#   - Asosiy bot bazasi  -> asosiy bot (.env)
+#   - Tikuv bot bazasi   -> tikuv bot (.env.tikuv)
+# Server o'chib ketsa ham, backup Telegram'da saqlanib qoladi.
 set -euo pipefail
 
 cd /opt/connectorbot
-
-# .env dan faqat kerakli qiymatlarni xavfsiz o'qiymiz (source ishlatmaymiz,
-# chunki DEFAULT_WELCOME kabi bo'sh joyli qiymatlar uni buzadi).
-BOT_TOKEN="$(grep -E '^BOT_TOKEN=' .env | head -1 | cut -d= -f2- | tr -d '\r')"
-ADMIN_IDS="$(grep -E '^ADMIN_IDS=' .env | head -1 | cut -d= -f2- | tr -d '\r')"
-
 STAMP="$(date +%F-%H%M)"
-TMP="/tmp/connectorbot-backup-$STAMP.archive.gz"
 
-# Ikkala bazani (connector-bot va connector-bot-tikuv) bitta arxivga.
-docker compose exec -T mongo mongodump --archive --gzip > "$TMP"
+backup_one() {
+  local envfile="$1" db="$2" label="$3"
+  [ -f "$envfile" ] || { echo "$label: $envfile yo'q, o'tkazildi"; return; }
 
-SIZE="$(du -h "$TMP" | cut -f1)"
+  local token admins tmp size
+  token="$(grep -E '^BOT_TOKEN=' "$envfile" | head -1 | cut -d= -f2- | tr -d '\r ')"
+  admins="$(grep -E '^ADMIN_IDS=' "$envfile" | head -1 | cut -d= -f2- | tr -d '\r')"
+  [ -z "$token" ] && { echo "$label: BOT_TOKEN yo'q, o'tkazildi"; return; }
 
-IFS=',' read -ra ADMINS <<< "$ADMIN_IDS"
-for a in "${ADMINS[@]}"; do
-  a="$(echo "$a" | tr -d ' ')"
-  [ -z "$a" ] && continue
-  curl -s -F chat_id="$a" \
-       -F document=@"$TMP" \
-       -F caption="🗄 ConnectorBot backup — $STAMP ($SIZE)" \
-       "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" >/dev/null
-done
+  tmp="/tmp/${db}-$STAMP.archive.gz"
+  docker compose exec -T mongo mongodump --db "$db" --archive --gzip > "$tmp"
+  size="$(du -h "$tmp" | cut -f1)"
 
-rm -f "$TMP"
-echo "Backup yuborildi: $STAMP ($SIZE)"
+  IFS=',' read -ra list <<< "$admins"
+  for a in "${list[@]}"; do
+    a="$(echo "$a" | tr -d ' ')"
+    [ -z "$a" ] && continue
+    curl -s -F chat_id="$a" -F document=@"$tmp" \
+         -F caption="🗄 $label backup — $STAMP ($size)" \
+         "https://api.telegram.org/bot${token}/sendDocument" >/dev/null
+  done
+  rm -f "$tmp"
+  echo "$label backup yuborildi: $STAMP ($size)"
+}
+
+backup_one ".env"       "connector-bot"       "Asosiy bot"
+backup_one ".env.tikuv" "connector-bot-tikuv" "Tikuv bot"

@@ -4,10 +4,11 @@
 set -euo pipefail
 
 cd /opt/connectorbot
-set -a
-# shellcheck disable=SC1091
-source .env
-set +a
+
+# .env dan faqat kerakli qiymatlarni xavfsiz o'qiymiz (source ishlatmaymiz,
+# chunki DEFAULT_WELCOME kabi bo'sh joyli qiymatlar uni buzadi).
+BOT_TOKEN="$(grep -E '^BOT_TOKEN=' .env | head -1 | cut -d= -f2- | tr -d '\r')"
+ADMIN_IDS="$(grep -E '^ADMIN_IDS=' .env | head -1 | cut -d= -f2- | tr -d '\r')"
 
 STAMP="$(date +%F-%H%M)"
 TMP="/tmp/connectorbot-backup-$STAMP.archive.gz"
@@ -17,7 +18,7 @@ docker compose exec -T mongo mongodump --archive --gzip > "$TMP"
 
 SIZE="$(du -h "$TMP" | cut -f1)"
 
-IFS=',' read -ra ADMINS <<< "${ADMIN_IDS:-}"
+IFS=',' read -ra ADMINS <<< "$ADMIN_IDS"
 for a in "${ADMINS[@]}"; do
   a="$(echo "$a" | tr -d ' ')"
   [ -z "$a" ] && continue
